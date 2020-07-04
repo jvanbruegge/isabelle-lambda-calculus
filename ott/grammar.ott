@@ -1,0 +1,35 @@
+metavar x ::= {{ isa string }}
+
+indexvar n ::= {{ isa nat }}
+
+grammar
+
+v :: 'Value_' ::=
+    | \ x : t . e :: :: Lam {{ isasyn \<lambda> [[x]] : [[t]] . [[e]] }}
+    | () :: :: Unit
+
+e :: '' ::=
+    | x :: :: Var
+    | \ x : t . e :: :: Lam {{ isasyn \<lambda> [[x]] : [[t]] . [[e]] }}
+    | e1 e2 :: :: App
+    | () :: :: Unit
+    | e [ e' / x ] :: M :: SubstE {{ isa esubst_e [[e']] [[x]] [[e]] }}
+    | ( e ) :: S :: Parens {{ isa [[e]] }}
+
+t {{ isa \<tau> }} :: 'Ty' ::=
+    | unit :: :: Unit
+    | t1 -> t2 :: :: Arrow {{ isasyn [[t1]] \<rightarrow> [[t2]] }}
+
+G {{ isa \<Gamma> }} :: 'Env_' ::= {{ isa (x * \<tau>) set }}
+    | empty :: :: Empty {{ isa {} }}
+    | G, x : t :: :: Extend {{ isa [[G]] \<union> { ([[x]], [[t]]) } }}
+
+formula :: 'formula_' ::=
+    | judgement :: :: judgement
+    | x : t in G :: :: Elem {{ isa ([[x]], [[t]]) \<in> [[G]] }}
+
+subrules
+    v <:: e
+
+substitutions
+    single e x :: esubst

@@ -1,0 +1,8 @@
+defns
+Jst :: '' ::=
+
+defn
+e --> e'    :: :: ST :: ST_ {{ isasyn [[e]] \<longrightarrow> [[e']] }} by
+
+--------------------- :: beta
+(\x:t.e) v --> e[v/x]
