@@ -2,7 +2,15 @@ defns
 Jst :: '' ::=
 
 defn
-e --> e'    :: :: ST :: ST_ {{ isasyn [[e]] \<longrightarrow> [[e']] }} by
+e --> e'    :: :: Step :: ST_ {{ isasyn [[e]] \<longrightarrow> [[e']] }} by
 
---------------------- :: beta
+--------------------- :: Beta
 (\x:t.e) v --> e[v/x]
+
+e1 --> e2
+-------------- :: App
+e1 e --> e2 e
+
+e1 --> e2
+--------------- :: App2
+v e1 --> v e2

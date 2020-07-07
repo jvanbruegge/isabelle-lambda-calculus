@@ -7,15 +7,28 @@ G |- e : t      :: :: T :: T_ {{ isasyn [[G]] \<turnstile> [[e]] : [[t]] }} by
 -------------- :: Unit
 G |- () : unit
 
+%|-wf G
 x : t in G
 ----------- :: Var
 G |- x : t
 
 G, x : t1 |- e : t2
 -------------------- :: Abs
-G |- (\x:t.e) : t1 -> t2
+G |- (\x:t1.e) : t1 -> t2
 
 G |- e1 : t1 -> t2
 G |- e2 : t1
 -------------------- :: App
 G |- e1 e2 : t2
+
+%defn
+%|-wf G      :: :: Gwf :: Gwf_ {{ isasyn \<turnstile>\<^sub>w\<^sub>f [[G]] }}
+%by
+%
+%------------ :: Empty
+%|-wf empty
+
+%|-wf G
+%x # G
+%------------ :: Var
+%|-wf G, x : t

@@ -1,7 +1,8 @@
-OTT_FILES = ott/grammar.ott ott/small_step.ott ott/typing.ott
+OTT_FILES = ott/grammar.ott ott/typing.ott ott/small_step.ott
 
 generate: $(OTT_FILES)
-	@eval $$(opam env) && ott -o Defs.thy $(OTT_FILES)
+	#@eval $$(opam env) && ott -o Defs.thy $(OTT_FILES)
+	@ott -o Defs.thy $(OTT_FILES)
 
 watch:
 	make generate

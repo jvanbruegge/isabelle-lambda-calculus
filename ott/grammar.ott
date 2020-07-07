@@ -10,11 +10,11 @@ v :: 'Value_' ::=
 
 e :: '' ::=
     | x :: :: Var
-    | \ x : t . e :: :: Lam {{ isasyn \<lambda> [[x]] : [[t]] . [[e]] }}
+    | \ x : t . e :: :: Lam (+ bind x in e +) {{ isasyn \<lambda> [[x]] : [[t]] . [[e]] }}
     | e1 e2 :: :: App
     | () :: :: Unit
-    | e [ e' / x ] :: M :: SubstE {{ isa esubst_e [[e']] [[x]] [[e]] }}
-    | ( e ) :: S :: Parens {{ isa [[e]] }}
+    | e [ e' / x ] :: M :: TSubst {{ icho esubst_e [[e']] [[x]] [[e]] }}
+    | ( e ) :: S :: Parens {{ icho [[e]] }}
 
 t {{ isa \<tau> }} :: 'Ty' ::=
     | unit :: :: Unit
@@ -22,14 +22,25 @@ t {{ isa \<tau> }} :: 'Ty' ::=
 
 G {{ isa \<Gamma> }} :: 'Env_' ::= {{ isa (x * \<tau>) set }}
     | empty :: :: Empty {{ isa {} }}
-    | G, x : t :: :: Extend {{ isa [[G]] \<union> { ([[x]], [[t]]) } }}
+    | x : t :: :: Single {{ isa { ([[x]], [[t]]) } }}
+    | G , x : t :: :: Extend {{ isa insert ([[x]], [[t]]) [[G]] }}
 
 formula :: 'formula_' ::=
     | judgement :: :: judgement
     | x : t in G :: :: Elem {{ isa ([[x]], [[t]]) \<in> [[G]] }}
+    | x # G :: :: Fresh {{ isa [[x]] # [[G]] }}
+
+embed
+{{ isa
+fun fresh :: "x => \<Gamma> => bool" (infixl "#" 70) where
+    "fresh x G = (\<forall>(a, t)\<in>G. a \<noteq> x)"
+}}
 
 subrules
     v <:: e
+
+freevars
+    e x :: fve
 
 substitutions
     single e x :: esubst
