@@ -8,7 +8,7 @@ I am using [ott](https://github.com/ott-lang/ott) to generate Isabelle code for 
 
 -   [ ] Start with a simply typed lambda calculus with the help of
     -   [x] Define system
-    -   [ ] Prove Progress
+    -   [x] Prove Progress
     -   [ ] Prove Preservation
 -   [ ] Extend calculus with datatypes and `case` expressions
     -   [ ] Extend definition
