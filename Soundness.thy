@@ -38,4 +38,37 @@ next
   qed
 qed
 
+definition fve :: "e \<Rightarrow> x set" where
+  "fve e \<equiv> set (fve_e e)"
+
+definition closed :: "e \<Rightarrow> bool" where
+  "closed x \<equiv> fve x = {}"
+
+declare fve_def[simp]
+
+lemma list_minus_set: "set (list_minus e xs) = set e - set xs"
+  by (induction e) (auto)
+
+lemma free_in_context: "\<lbrakk> x \<in> fve e ; \<Gamma> \<turnstile> e : \<tau> \<rbrakk> \<Longrightarrow> \<exists>\<tau>'. (x, \<tau>') \<in> \<Gamma>"
+proof (induction e arbitrary: \<Gamma> \<tau> x)
+  case (Var y)
+  then show ?case using T.cases by fastforce
+next
+  case (Lam y \<tau>' e)
+  then have "x \<noteq> y" by (simp add: list_minus_set)
+  then have "x \<in> set (fve_e e)" using list_minus_set T.cases Lam by fastforce
+  then show ?case
+    by (metis fve_def Lam.IH Lam.prems(2) T.cases \<open>x \<noteq> y\<close> e.distinct(9) e.inject(2) e.simps(11) e.simps(5) insertE prod.inject)
+next
+  case (App e1 e2)
+  then show ?case by (metis fve_def T.cases Un_iff e.simps(11) e.simps(15) e.simps(3) e.simps(7) fve_e.simps(3) set_append)
+next
+  case Unit
+  then show ?case by simp
+qed
+
+corollary typeable_closed: "{} \<turnstile> e : \<tau> \<Longrightarrow> closed e"
+  unfolding closed_def fve_def
+  using free_in_context last_in_set by fastforce
+
 end
