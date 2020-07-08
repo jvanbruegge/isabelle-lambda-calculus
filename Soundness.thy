@@ -71,19 +71,61 @@ corollary typeable_closed: "{} \<turnstile> e : \<tau> \<Longrightarrow> closed 
   unfolding closed_def fve_def
   using free_in_context last_in_set by fastforce
 
-lemma context_invariance: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; \<Gamma> \<subseteq> \<Gamma>' \<rbrakk> \<Longrightarrow> \<Gamma>' \<turnstile> e : \<tau>"
+lemma context_invariance: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; \<forall>(x, \<tau>')\<in>\<Gamma>. x\<in>fve e \<longrightarrow> (x, \<tau>')\<in>\<Gamma>' \<rbrakk> \<Longrightarrow> \<Gamma>' \<turnstile> e : \<tau>"
 proof (induction \<Gamma> e \<tau> arbitrary: \<Gamma>' rule: T.induct)
-case (T_UnitI \<Gamma>)
+  case (T_UnitI \<Gamma>)
   then show ?case by (simp add: T.T_UnitI)
 next
   case (T_VarI x \<tau> \<Gamma>)
-  then show ?case using T.T_VarI by blast
+  then show ?case by (auto simp: T.T_VarI)
 next
-  case (T_AbsI x \<tau>1 \<Gamma> e \<tau>2)
-  then show ?case by (meson T.T_AbsI insert_mono)
+  case (T_AbsI y \<tau>1 \<Gamma> e \<tau>2)
+  have fresh: "y # \<Gamma>'" sorry
+
+  have "\<forall>(x, \<tau>')\<in>insert (y, \<tau>1) \<Gamma>. x \<in> fve e \<longrightarrow> (x, \<tau>') \<in> insert (y, \<tau>1) \<Gamma>" by blast
+  then have "insert (y, \<tau>1) \<Gamma>' \<turnstile> e : \<tau>2" using T_AbsI(3)[of "insert (y, \<tau>1) \<Gamma>"]
+    by (smt Diff_iff T_AbsI.IH T_AbsI.hyps(2) T_AbsI.prems case_prodD case_prodI2 empty_iff fresh.elims(2) fve_def fve_e.simps(2) insert_iff list.set(1) list.simps(15) list_minus_set)
+  then show ?case using T.T_AbsI[of y \<tau>1 \<Gamma>' e \<tau>2] T_AbsI fresh by simp
 next
   case (T_AppI \<Gamma> e1 \<tau>1 \<tau>2 e2)
-  then show ?case by (meson T.T_AppI)
+  then show ?case apply (auto split: prod.splits) by (metis (mono_tags, lifting) T.T_AppI case_prodI2)
+qed
+
+lemma substitution: "\<lbrakk> insert (x, \<tau>') \<Gamma> \<turnstile> e : \<tau> ; {} \<turnstile> v : \<tau>' ; x # \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> esubst_e v x e : \<tau>"
+proof (induction "insert (x, \<tau>') \<Gamma>" e \<tau> arbitrary: v x \<tau>' \<Gamma> rule: T.induct)
+case T_UnitI
+  then show ?case by (simp add: T.T_UnitI)
+next
+  case (T_VarI y \<sigma>)
+  then have t: "insert (x, \<tau>') \<Gamma> \<turnstile> Var y : \<sigma>" using T.T_VarI by simp
+  then show ?case
+  proof (cases "y = x")
+    case True
+    then have "\<sigma> = \<tau>'" using T_VarI by fastforce
+    then show ?thesis using context_invariance T_VarI.prems(1) True by auto
+  next
+    case False
+    then have "\<Gamma> \<turnstile> Var y : \<sigma>" using t T.T_VarI T_VarI.hyps by auto
+    then show ?thesis using False by simp
+  qed
+next
+  case (T_AbsI y \<tau>1 e \<tau>2)
+  let ?lam = "(\<lambda> y : \<tau>1 . e)"
+  from T_AbsI show ?case
+  proof (cases "x = y")
+    case True
+    then have same: "esubst_e v x ?lam = ?lam" using T_AbsI by simp
+    then have fv: "x \<notin> fve ?lam" by (simp add: list_minus_set True)
+    then have "insert (x, \<tau>') \<Gamma> \<turnstile> ?lam : \<tau>1 \<rightarrow> \<tau>2" using T.T_AbsI T_AbsI by simp
+    then have "\<Gamma> \<turnstile> ?lam : \<tau>1 \<rightarrow> \<tau>2" using True fv context_invariance by blast
+    then show ?thesis using same by simp
+  next
+    case False
+    then show ?thesis sorry
+  qed
+next
+  case (T_AppI e1 \<tau>1 \<tau>2 e2)
+  then show ?case using T.T_AppI by (metis esubst_e.simps(3))
 qed
 
 end
