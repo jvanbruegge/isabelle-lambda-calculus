@@ -71,4 +71,19 @@ corollary typeable_closed: "{} \<turnstile> e : \<tau> \<Longrightarrow> closed 
   unfolding closed_def fve_def
   using free_in_context last_in_set by fastforce
 
+lemma context_invariance: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; \<forall>(x, \<tau>') \<in> \<Gamma>. (x, \<tau>') \<in> \<Gamma>' \<rbrakk> \<Longrightarrow> \<Gamma>' \<turnstile> e : \<tau>"
+proof (induction \<Gamma> e \<tau> arbitrary: \<Gamma>' rule: T.induct)
+case (T_UnitI \<Gamma>)
+  then show ?case by (simp add: T.T_UnitI)
+next
+  case (T_VarI x \<tau> \<Gamma>)
+  then show ?case by (simp add: T.T_VarI)
+next
+  case (T_AbsI x \<tau>1 \<Gamma> e \<tau>2)
+  then show ?case by (simp add: T.T_AbsI)
+next
+  case (T_AppI \<Gamma> e1 \<tau>1 \<tau>2 e2)
+  then show ?case by (meson T.T_AppI)
+qed
+
 end
