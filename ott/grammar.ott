@@ -20,20 +20,20 @@ t {{ isa \<tau> }} :: 'Ty' ::=
     | unit :: :: Unit
     | t1 -> t2 :: :: Arrow {{ isasyn [[t1]] \<rightarrow> [[t2]] }}
 
-G {{ isa \<Gamma> }} :: 'Env_' ::= {{ isa (x * \<tau>) set }}
-    | empty :: :: Empty {{ isa {} }}
-    | x : t :: :: Single {{ isa { ([[x]], [[t]]) } }}
-    | G , x : t :: :: Extend {{ isa insert ([[x]], [[t]]) [[G]] }}
+G {{ isa \<Gamma> }} :: 'Env_' ::= {{ isa (x * \<tau>) list }}
+    | empty :: :: Empty {{ isa [] }}
+    | x : t :: :: Single {{ isa [([[x]], [[t]])] }}
+    | G , x : t :: :: Extend {{ isa ([[x]], [[t]])#[[G]] }}
 
 formula :: 'formula_' ::=
     | judgement :: :: judgement
-    | x : t in G :: :: Elem {{ isa ([[x]], [[t]]) \<in> [[G]] }}
-    | x # G :: :: Fresh {{ isa [[x]] # [[G]] }}
+    | x : t in G :: :: Elem {{ isa isin ([[x]], [[t]]) [[G]] }}
 
 embed
 {{ isa
-fun fresh :: "x => \<Gamma> => bool" (infixl "#" 70) where
-    "fresh x G = (\<forall>(a, t)\<in>G. a \<noteq> x)"
+fun isin :: "x * \<tau> => \<Gamma> => bool" (infixr "\<in>" 70) where
+  "isin _ [] = False"
+| "isin (x, t) ((y, t')#xs) = (if x = y then t = t' else isin (x, t) xs)"
 }}
 
 subrules
