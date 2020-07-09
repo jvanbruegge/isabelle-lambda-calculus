@@ -84,40 +84,33 @@ next
 qed
 
 lemma substitution: "\<lbrakk> (x, \<tau>')#\<Gamma> \<turnstile> e : \<tau> ; [] \<turnstile> v : \<tau>' \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> esubst_e v x e : \<tau>"
-proof (induction "(x, \<tau>')#\<Gamma>" e \<tau> arbitrary: v x \<tau>' \<Gamma> rule: T.induct)
-case T_UnitI
-  then show ?case by (simp add: T.T_UnitI)
-next
-  case (T_VarI y \<sigma>)
-  then have t: "(x, \<tau>')#\<Gamma> \<turnstile> Var y : \<sigma>" using T.T_VarI by simp
+proof (induction e arbitrary: \<Gamma> \<tau> v x \<tau>')
+  case (Var y)
   then show ?case
-  proof (cases "y = x")
-    case True
-    then have "\<sigma> = \<tau>'" using T_VarI by fastforce
-    then show ?thesis using T_VarI.prems True context_invariance by fastforce
-  next
-    case False
-    then have "\<Gamma> \<turnstile> Var y : \<sigma>" using t T.T_VarI T_VarI.hyps by auto
-    then show ?thesis using False by simp
-  qed
+    by (metis (no_types, lifting) T.simps context_invariance e.distinct(1) e.distinct(3) e.distinct(5) esubst_e.simps(1) isin.simps(1) isin.simps(2))
 next
-  case (T_AbsI y \<tau>1 e \<tau>2)
-  let ?lam = "(\<lambda> y : \<tau>1 . e)"
-  from T_AbsI show ?case
+  case (Lam y \<sigma> e)
+  let ?lam = "\<lambda> y : \<sigma> . e"
+  from Lam show ?case
   proof (cases "x = y")
     case True
-    then have same: "esubst_e v x ?lam = ?lam" using T_AbsI by simp
-    then have fv: "x \<notin> set (fve_e ?lam)" by (simp add: list_minus_set True)
-    then have "(x, \<tau>')#\<Gamma> \<turnstile> ?lam : \<tau>1 \<rightarrow> \<tau>2" using T.T_AbsI T_AbsI by simp
-    then have "\<Gamma> \<turnstile> ?lam : \<tau>1 \<rightarrow> \<tau>2" using fv context_invariance by auto
-    then show ?thesis using same by simp
+    then have "esubst_e v x ?lam = ?lam" by simp
+    then show ?thesis
+      by (smt Diff_iff Lam.prems(1) True context_invariance fve_e.simps(2) insert_iff isin.simps(2) list.simps(15) list_minus_set)
   next
     case False
-    then show ?thesis sorry
+    then obtain \<tau>2 where P: "\<tau> = (\<sigma> \<rightarrow> \<tau>2)" using Lam(2) T.cases by blast
+    then have "(y, \<sigma>)#(x, \<tau>')#\<Gamma> \<turnstile> e : \<tau>2" using T.cases Lam by blast
+    then have "(x, \<tau>')#(y, \<sigma>)#\<Gamma> \<turnstile> e : \<tau>2" using context_invariance False by force
+    then show ?thesis using False Lam T_AbsI P by simp
   qed
 next
-  case (T_AppI e1 \<tau>1 \<tau>2 e2)
-  then show ?case using T.T_AppI by (metis esubst_e.simps(3))
+  case (App e1 e2)
+  from \<open>(x, \<tau>') # \<Gamma> \<turnstile> App e1 e2 : \<tau>\<close> obtain \<tau>1 where P: "((x, \<tau>') # \<Gamma> \<turnstile> e1 : \<tau>1 \<rightarrow> \<tau>) \<and> ((x, \<tau>') # \<Gamma> \<turnstile> e2 : \<tau>1)" using T.cases by blast
+  then show ?case using T_AppI App by fastforce
+next
+  case Unit
+  then show ?case apply auto using T_UnitI T.cases by blast
 qed
 
 end
