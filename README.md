@@ -6,11 +6,15 @@ I am using [ott](https://github.com/ott-lang/ott) to generate Isabelle code for 
 
 ## Roadmap
 
--   [ ] Start with a simply typed lambda calculus with the help of
+-   [ ] Start with a simply typed lambda calculus
     -   [x] Define system
     -   [x] Prove Progress
     -   [ ] Prove Preservation
--   [ ] Extend calculus with datatypes and `case` expressions
+-   [ ] Add let bindings
+    -   [ ] Extend definition
+    -   [ ] Prove Progress
+    -   [ ] Prove Preservation
+-   [ ] Add datatypes and `case` expressions
     -   [ ] Extend definition
     -   [ ] Prove Progress
     -   [ ] Prove Preservation
@@ -23,3 +27,7 @@ I am using [ott](https://github.com/ott-lang/ott) to generate Isabelle code for 
     -   [ ] Prove Progress
     -   [ ] Prove Preservation
 -   [ ] TBD
+
+## Used literature
+
+Up until now, I mainly used [Software Foundations: Programming Language Foundations](https://softwarefoundations.cis.upenn.edu/current/plf-current/toc.html).
