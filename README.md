@@ -6,7 +6,7 @@ I am using [ott](https://github.com/ott-lang/ott) to generate Isabelle code for 
 
 ## Roadmap
 
--   [ ] Start with a simply typed lambda calculus
+-   [x] Start with a simply typed lambda calculus
     -   [x] Define system
     -   [x] Prove Progress
     -   [x] Prove Preservation

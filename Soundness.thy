@@ -138,4 +138,19 @@ next
   qed
 qed
 
+definition stuck :: "e \<Rightarrow> bool" where
+  "stuck e \<equiv> \<not>(is_v_of_e e \<or> (\<exists>e'. Step e e'))"
+
+inductive Steps :: "e \<Rightarrow> e \<Rightarrow> bool" (infix "\<longrightarrow>*" 70) where
+  refl: "Steps e e"
+| trans: "\<lbrakk> Steps e1 e2 ; Step e2 e3 \<rbrakk> \<Longrightarrow> Steps e1 e3"
+
+lemma multi_preservation: "\<lbrakk> e \<longrightarrow>* e' ; [] \<turnstile> e : \<tau> \<rbrakk> \<Longrightarrow> [] \<turnstile> e' : \<tau>"
+  apply (induction e e' rule: Steps.induct)
+  using preservation by blast+
+
+corollary soundness: "\<lbrakk> [] \<turnstile> e : \<tau> ; e \<longrightarrow>* e' \<rbrakk> \<Longrightarrow> \<not>(stuck e')"
+  unfolding stuck_def
+  using progress multi_preservation by blast
+
 end
