@@ -9,7 +9,7 @@ I am using [ott](https://github.com/ott-lang/ott) to generate Isabelle code for 
 -   [ ] Start with a simply typed lambda calculus
     -   [x] Define system
     -   [x] Prove Progress
-    -   [ ] Prove Preservation
+    -   [x] Prove Preservation
 -   [ ] Add let bindings
     -   [ ] Extend definition
     -   [ ] Prove Progress

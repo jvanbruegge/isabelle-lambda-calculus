@@ -113,4 +113,29 @@ next
   then show ?case apply auto using T_UnitI T.cases by blast
 qed
 
+theorem preservation: "\<lbrakk> [] \<turnstile> e : \<tau> ; Step e e' \<rbrakk> \<Longrightarrow> [] \<turnstile> e' : \<tau>"
+proof (induction "[] :: \<Gamma>" e \<tau> arbitrary: e' rule: T.induct)
+case T_UnitI
+  then show ?case using Step.cases by blast
+next
+  case (T_VarI x \<tau>)
+  then show ?case using Step.cases by blast
+next
+  case (T_AbsI x \<tau>1 e \<tau>2)
+  then show ?case using Step.cases by blast
+next
+  case (T_AppI e1 \<tau>1 \<tau>2 e2)
+  from \<open>App e1 e2 \<longrightarrow> e'\<close> show ?case
+  proof cases
+    case (ST_BetaI x \<tau> e)
+    then show ?thesis using substitution T.cases T_AppI by blast
+  next
+    case (ST_AppI e2)
+    then show ?thesis using T_AppI T.T_AppI by blast
+  next
+    case (ST_App2I e2)
+    then show ?thesis using T_AppI T.T_AppI by blast
+  qed
+qed
+
 end
