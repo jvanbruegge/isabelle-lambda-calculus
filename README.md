@@ -11,7 +11,7 @@ I am using [ott](https://github.com/ott-lang/ott) to generate Isabelle code for 
     -   [x] Prove Progress
     -   [x] Prove Preservation
 -   [ ] Add let bindings
-    -   [ ] Extend definition
+    -   [x] Extend definition
     -   [ ] Prove Progress
     -   [ ] Prove Preservation
 -   [ ] Add datatypes and `case` expressions

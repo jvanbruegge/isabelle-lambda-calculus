@@ -13,6 +13,7 @@ e :: '' ::=
     | \ x : t . e :: :: Lam (+ bind x in e +) {{ isasyn \<lambda> [[x]] : [[t]] . [[e]] }}
     | e1 e2 :: :: App
     | () :: :: Unit
+    | let x = e1 in e2 :: :: Let (+ bind x in e2 +)
     | e [ e' / x ] :: M :: TSubst {{ icho esubst_e [[e']] [[x]] [[e]] }}
     | ( e ) :: S :: Parens {{ icho [[e]] }}
 
