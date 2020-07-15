@@ -179,6 +179,16 @@ next
     case (ST_App2I e2)
     then show ?thesis using T_AppI T.T_AppI by blast
   qed
+next
+  case (T_LetI e1 \<tau>1 x e2 \<tau>2)
+  from \<open>Let x e1 e2 \<longrightarrow> e'\<close> show ?case
+  proof (cases)
+    case ST_SubstI
+    then show ?thesis using substitution T.cases T_LetI by blast
+  next
+    case (ST_LetI e2)
+    then show ?thesis using T_LetI T.T_LetI by blast
+  qed
 qed
 
 definition stuck :: "e \<Rightarrow> bool" where

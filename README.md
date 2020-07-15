@@ -10,10 +10,10 @@ I am using [ott](https://github.com/ott-lang/ott) to generate Isabelle code for 
     -   [x] Define system
     -   [x] Prove Progress
     -   [x] Prove Preservation
--   [ ] Add let bindings
+-   [x] Add let bindings
     -   [x] Extend definition
     -   [x] Prove Progress
-    -   [ ] Prove Preservation
+    -   [x] Prove Preservation
 -   [ ] Add datatypes and `case` expressions
     -   [ ] Extend definition
     -   [ ] Prove Progress
