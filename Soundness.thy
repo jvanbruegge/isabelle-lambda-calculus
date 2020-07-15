@@ -2,6 +2,41 @@ theory Soundness
   imports Defs
 begin
 
+lemma list_minus_set: "set (list_minus e xs) = set e - set xs"
+  by (induction e) (auto)
+
+lemma free_in_context: "\<lbrakk> x \<in> set (fve_e e) ; \<Gamma> \<turnstile> e : \<tau> \<rbrakk> \<Longrightarrow> \<exists>\<tau>'. (x, \<tau>') \<in> \<Gamma>"
+proof (induction e arbitrary: \<Gamma> \<tau> x)
+  case (Var y)
+  then show ?case using T.cases by fastforce
+next
+  case (Lam y \<tau>' e)
+  then have "x \<noteq> y" by (simp add: list_minus_set)
+  then have x: "x \<in> set (fve_e e)" using list_minus_set T.cases Lam by fastforce
+  from Lam(3) obtain \<tau>2 where "(y, \<tau>')#\<Gamma> \<turnstile> e : \<tau>2 \<and> \<tau> = (\<tau>' \<rightarrow> \<tau>2)" using T.cases by blast
+  then show ?case using Lam(1)[OF x] by (meson \<open>x \<noteq> y\<close> isin.simps(2)) 
+next
+  case (App e1 e2)
+  from App(4) obtain \<tau>1 \<tau>2 where e: "\<Gamma> \<turnstile> e1 : \<tau>1 \<rightarrow> \<tau>2 \<and> \<Gamma> \<turnstile> e2 : \<tau>1" using T.cases by blast
+  from App have "x \<in> set (fve_e e1) \<or> x \<in> set (fve_e e2)" by simp
+  then show ?case using e App by blast
+next
+  case Unit
+  then show ?case by simp
+next
+  case (Let y e1 e2)
+  then have x: "x \<in> set (fve_e e1) \<or> x \<in> set (fve_e e2)" using list_minus_set by fastforce
+  from Let(4) obtain \<tau>1 where "\<Gamma> \<turnstile> e1 : \<tau>1 \<and> (y, \<tau>1)#\<Gamma> \<turnstile> e2 : \<tau>" using T.cases by blast
+  then show ?case using x Let
+    by (metis Diff_iff Un_iff fve_e.simps(5) isin.simps(2) list.set_intros(1) list_minus_set set_append)
+qed
+
+lemma fun_ty_lam: "\<lbrakk> is_v_of_e e ; \<Gamma> \<turnstile> e : \<tau>1 \<rightarrow> \<tau>2 \<rbrakk> \<Longrightarrow> \<exists>x e'. e = (\<lambda>x:\<tau>1. e')"
+  apply (cases e)
+      apply auto
+  using T.cases apply blast+
+  done
+
 theorem progress: "[] \<turnstile> e : \<tau> \<Longrightarrow> is_v_of_e e \<or> (\<exists>e'. Step e e')"
 proof (induction "[] :: \<Gamma>" e \<tau> rule: T.induct)
   case T_UnitI
@@ -23,8 +58,7 @@ next
     from IH2 show ?thesis
     proof (elim disjE)
       assume "is_v_of_e e2"
-      from \<open>is_v_of_e e1\<close> T_AppI have "\<exists>x e. e1 = (\<lambda>x:\<tau>1. e)"
-        by (metis T.cases \<tau>.distinct(1) \<tau>.inject is_v_of_e.simps(1) is_v_of_e.simps(3))
+      from \<open>is_v_of_e e1\<close> T_AppI(1) have "\<exists>x e. e1 = (\<lambda>x:\<tau>1. e)" by (simp add: fun_ty_lam)
       then have "\<exists>e'. Step (App e1 e2) e'" using \<open>is_v_of_e e2\<close> ST_BetaI by blast
       then show ?thesis by simp
     next
@@ -37,32 +71,14 @@ next
     then have "Step (App e1 e2) (App e1' e2)" by (rule ST_AppI)
     then show ?thesis by blast
   qed
+next
+  case (T_LetI e1 \<tau>1 x e2 \<tau>2)
+  then show ?case using ST_SubstI ST_LetI by blast
 qed
 
 definition closed :: "e \<Rightarrow> bool" where
   "closed x \<equiv> fve_e x = []"
 
-lemma list_minus_set: "set (list_minus e xs) = set e - set xs"
-  by (induction e) (auto)
-
-lemma free_in_context: "\<lbrakk> x \<in> set (fve_e e) ; \<Gamma> \<turnstile> e : \<tau> \<rbrakk> \<Longrightarrow> \<exists>\<tau>'. (x, \<tau>') \<in> \<Gamma>"
-proof (induction e arbitrary: \<Gamma> \<tau> x)
-  case (Var y)
-  then show ?case using T.cases by fastforce
-next
-  case (Lam y \<tau>' e)
-  then have "x \<noteq> y" by (simp add: list_minus_set)
-  then have "x \<in> set (fve_e e)" using list_minus_set T.cases Lam by fastforce
-  then show ?case
-    by (metis (no_types, lifting) Lam(3) Lam.IH T.cases \<open>x \<noteq> y\<close> e.distinct(1) e.distinct(9) e.simps(11) e.simps(2) isin.simps(2))
-next
-  case (App e1 e2)
-  then show ?case
-    by (metis (no_types, lifting) T.cases UnE e.distinct(11) e.distinct(3) e.distinct(7) e.inject(3) fve_e.simps(3) set_append)
-next
-  case Unit
-  then show ?case by simp
-qed
 
 corollary typeable_closed: "[] \<turnstile> e : \<tau> \<Longrightarrow> closed e"
   unfolding closed_def
