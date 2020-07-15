@@ -97,13 +97,24 @@ next
 next
   case (T_AppI \<Gamma> e1 \<tau>1 \<tau>2 e2)
   then show ?case by auto (metis (mono_tags, lifting) T.T_AppI)
+next
+  case (T_LetI e1 \<tau>1 x e2 \<tau>2)
+  then show ?case apply auto
+    by (smt DiffI T.T_LetI empty_iff insertE isin.simps(2) list.set(1) list.set(2) list_minus_set) 
 qed
 
 lemma substitution: "\<lbrakk> (x, \<tau>')#\<Gamma> \<turnstile> e : \<tau> ; [] \<turnstile> v : \<tau>' \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> esubst_e v x e : \<tau>"
 proof (induction e arbitrary: \<Gamma> \<tau> v x \<tau>')
   case (Var y)
   then show ?case
-    by (metis (no_types, lifting) T.simps context_invariance e.distinct(1) e.distinct(3) e.distinct(5) esubst_e.simps(1) isin.simps(1) isin.simps(2))
+  proof (cases "x = y")
+    case True
+    then have "\<tau> = \<tau>'" using Var T.cases by fastforce
+    then show ?thesis using True Var context_invariance by fastforce
+  next
+    case False
+    then show ?thesis using Var context_invariance by simp
+  qed
 next
   case (Lam y \<sigma> e)
   let ?lam = "\<lambda> y : \<sigma> . e"
@@ -127,6 +138,22 @@ next
 next
   case Unit
   then show ?case apply auto using T_UnitI T.cases by blast
+next
+  case (Let y e1 e2)
+  from Let(3) obtain \<tau>1 where P: "(x, \<tau>')#\<Gamma> \<turnstile> e1 : \<tau>1 \<and> (y, \<tau>1)#(x, \<tau>')#\<Gamma> \<turnstile> e2 : \<tau>" using T.cases by blast
+  from Let show ?case
+  proof (cases "x = y")
+    case True
+    then have x: "esubst_e v x (Let y e1 e2) = Let y (esubst_e v x e1) e2" by simp
+    then have e1: "\<Gamma> \<turnstile> esubst_e v x e1 : \<tau>1" using Let P by blast
+    from True Let have e2: "(y, \<tau>1) # \<Gamma> \<turnstile> e2 : \<tau>" by (smt P context_invariance isin.simps(2))
+    then show ?thesis using T_LetI[OF e1 e2] x by simp
+  next
+    case False
+    then have "(x, \<tau>')#(y, \<tau>1)#\<Gamma> \<turnstile> e2 : \<tau>" using P context_invariance by fastforce
+    then show ?thesis
+      by (smt False Let.IH(1) Let.IH(2) Let.prems(2) P T_LetI empty_iff esubst_e.simps(5) list.set(1) set_ConsD)
+  qed
 qed
 
 theorem preservation: "\<lbrakk> [] \<turnstile> e : \<tau> ; Step e e' \<rbrakk> \<Longrightarrow> [] \<turnstile> e' : \<tau>"
