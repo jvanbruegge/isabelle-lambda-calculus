@@ -2,39 +2,47 @@ theory Soundness
   imports Defs
 begin
 
-lemma list_minus_set: "set (list_minus e xs) = set e - set xs"
-  by (induction e) (auto)
-
-lemma free_in_context: "⟦ x ∈ set (fve_e e) ; Γ ⊢ e : τ ⟧ ⟹ ∃τ'. (x, τ') ∈ Γ"
-proof (induction e arbitrary: Γ τ x)
+lemma free_in_context: "⟦ atom (x::name) ∈ fv_term e ; Γ ⊢ e : τ ⟧ ⟹ ∃τ'. (x, τ') ∈ Γ"
+proof(nominal_induct e avoiding: x Γ τ rule: term.strong_induct)
   case (Var y)
-  then show ?case using T.cases by fastforce
+  then have "fv_term (Var y) = { atom y }" unfolding supp_def by (simp add: supp_at_base)
+  then have "atom x = atom y" using ‹atom x ∈ fv_term (Var y)› by simp
+  then have "(x, τ) ∈ Γ" using T.cases[OF ‹Γ ⊢ Var y : τ›] by fastforce
+  then show ?case by blast
 next
-  case (Lam y τ' e)
-  then have "x ≠ y" by (simp add: list_minus_set)
-  then have x: "x ∈ set (fve_e e)" using list_minus_set T.cases Lam by fastforce
-  from Lam(3) obtain τ2 where "(y, τ')#Γ ⊢ e : τ2 ∧ τ = (τ' → τ2)" using T.cases by blast
-  then show ?case using Lam(1)[OF x] by (meson ‹x ≠ y› isin.simps(2))
+  case (Lam y τ1 e)
+  then have 1: "atom y ≠ atom x" by simp
+  then have 2: "atom x ∈ fv_term e" using Lam fresh_def by fastforce
+  obtain τ2 where 3: "(y, τ1)#Γ ⊢ e : τ2" using T.cases[OF ‹Γ ⊢ (λ y : τ1 . e) : τ›] sorry
+  show ?case using 1 Lam(4)[OF 2 3] by simp
 next
   case (App e1 e2)
-  from App(4) obtain τ1 τ2 where e: "Γ ⊢ e1 : τ1 → τ2 ∧ Γ ⊢ e2 : τ1" using T.cases by blast
-  from App have "x ∈ set (fve_e e1) ∨ x ∈ set (fve_e e2)" by simp
-  then show ?case using e App by blast
+  obtain τ1 where "Γ ⊢ e1 : τ1 → τ ∧ Γ ⊢ e2 : τ1" using T.cases[OF ‹Γ ⊢ App e1 e2 : τ›] by fastforce
+  then show ?case using App by auto
 next
   case Unit
   then show ?case by simp
 next
   case (Let y e1 e2)
-  then have x: "x ∈ set (fve_e e1) ∨ x ∈ set (fve_e e2)" using list_minus_set by fastforce
-  from Let(4) obtain τ1 where "Γ ⊢ e1 : τ1 ∧ (y, τ1)#Γ ⊢ e2 : τ" using T.cases by blast
-  then show ?case using x Let
-    by (metis Diff_iff Un_iff fve_e.simps(5) isin.simps(2) list.set_intros(1) list_minus_set set_append)
+  obtain τ' where P: "Γ ⊢ e1 : τ'" using T.cases[OF ‹Γ ⊢ Let y e1 e2 : τ›] by fastforce
+  from Let have "atom x ∈ fv_term e1 ∨ atom x ∈ fv_term e2" by auto
+  then show ?case
+  proof
+    assume x: "atom x ∈ fv_term e1"
+    obtain τ' where P: "Γ ⊢ e1 : τ'" using T.cases[OF ‹Γ ⊢ Let y e1 e2 : τ›] by fastforce
+    show ?thesis using Let(4)[OF x P] by simp
+  next
+    assume x: "atom x ∈ fv_term e2"
+    from Let have 1: "atom x ≠ atom y" by simp
+    have P: "(y, τ')#Γ ⊢ e2 : τ" using T.cases[OF ‹Γ ⊢ Let y e1 e2 : τ›] sorry
+    show ?thesis using Let(5)[OF x P] 1 by simp
+  qed
 qed
 
-lemma fun_ty_lam: "⟦ is_v_of_e e ; Γ ⊢ e : τ1 → τ2 ⟧ ⟹ ∃x e'. e = (λx:τ1. e')"
+(*lemma fun_ty_lam: "⟦ is_v_of_e e ; Γ ⊢ e : τ1 → τ2 ⟧ ⟹ ∃x e'. e = (λx:τ1. e')"
   apply (cases e)
-      apply auto
-  using T.cases apply blast+
+  apply auto
+  using T.cases by blast+
   done
 
 theorem progress: "[] ⊢ e : τ ⟹ is_v_of_e e ∨ (∃e'. Step e e')"
@@ -205,5 +213,5 @@ lemma multi_preservation: "⟦ e ⟶* e' ; [] ⊢ e : τ ⟧ ⟹ [] ⊢ e' : τ"
 corollary soundness: "⟦ [] ⊢ e : τ ; e ⟶* e' ⟧ ⟹ ¬(stuck e')"
   unfolding stuck_def
   using progress multi_preservation by blast
-
+*)
 end
