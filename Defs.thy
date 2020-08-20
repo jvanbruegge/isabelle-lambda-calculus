@@ -148,7 +148,17 @@ T_UnitI: "(\<Gamma> \<turnstile> Unit : TyUnit)"
 ( ( x ,  \<tau>1 ) # \<Gamma>  \<turnstile> e2 : \<tau>2) ; (\<Gamma> \<turnstile> e1 : \<tau>1)\<rbrakk> \<Longrightarrow>
 (\<Gamma> \<turnstile>  (Let x e1 e2)  : \<tau>2)"
 
-inductive_cases T_Abs_Inv: "\<Gamma> \<turnstile> (\<lambda>x : \<tau>1 . e) : \<tau>"
+lemma T_Var_Inv: "\<Gamma> \<turnstile> Var x : \<tau> \<Longrightarrow> (x, \<tau>) \<in> \<Gamma>"
+  using T.cases by fastforce
+
+lemma T_Abs_Inv:
+  assumes a: "\<Gamma> \<turnstile> (\<lambda>x : \<tau>1 . e) : \<tau>"
+  shows "\<exists>x' e' \<tau>2. (x', \<tau>1)#\<Gamma> \<turnstile> e' : \<tau>2 \<and> atom x' \<sharp> \<Gamma> \<and> (\<lambda>x : \<tau>1 . e) = (\<lambda>x' : \<tau>1 . e')"
+proof (cases rule: T.cases[OF a])
+  case (3 x' \<Gamma>' \<tau>1' e' \<tau>2')
+  then show ?thesis by auto
+qed simp_all
+  
 
 lemma fresh_not_isin: "atom x \<sharp> \<Gamma> \<Longrightarrow> \<nexists>t'. isin (x, t') \<Gamma>"
   apply (induction \<Gamma>)

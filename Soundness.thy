@@ -2,6 +2,69 @@ theory Soundness
   imports Defs
 begin
 
+lemma var_unused: "⟦ atom x ∉ fv_term e ; atom y ♯ e ⟧ ⟹ (λx : τ . e) = (λy : τ . e)"
+proof(nominal_induct e avoiding: x y τ rule: term.strong_induct)
+  case (Var z)
+  then show ?case
+    apply auto
+    using flip_fresh_fresh fresh_def by blast
+next
+  case (Lam z τ1 e')
+  then show ?case
+    apply (auto simp: flip_fresh_fresh)
+    using fresh_at_base(2) by blast
+next
+  case (App e1 e2)
+  then show ?case by simp
+next
+  case Unit
+  then show ?case by simp
+next
+  case (Let z e1 e2)
+  then show ?case
+    apply (auto simp: flip_fresh_fresh)
+    using fresh_at_base(2) by blast
+qed
+
+
+lemma rename_var: "⟦ atom y ♯ e ; (λx : τ1 . e) = (λy : τ1 . e') ⟧ ⟹ e = esubst_e (Var x) y e'"
+proof(nominal_induct e avoiding: x y τ1 e' rule: term.strong_induct)
+  case (Var x)
+  then show ?case sorry
+next
+  case (Lam x1a x2 x3)
+  then show ?case sorry
+next
+  case (App x1a x2)
+  then show ?case sorry
+next
+  case Unit
+  then show ?case sorry
+next
+  case (Let x1a x2 x3)
+  then show ?case sorry
+qed
+
+lemma context_invariance: "⟦ Γ ⊢ e : τ ; ∀x τ'. atom x ∈ fv_term e ∧ (x, τ') ∈ Γ ⟶ (x, τ')∈Γ' ⟧ ⟹ Γ' ⊢ e : τ"
+proof(induction Γ e τ arbitrary: Γ' rule: T.induct)
+  case (T_UnitI Γ)
+  then show ?case by (simp add: T.T_UnitI)
+next
+  case (T_VarI x τ Γ)
+  then show ?case by (simp add: T.T_VarI supp_at_base)
+next
+  case (T_AbsI x Γ τ1 e τ2)
+  obtain x'::"name" where 1: "atom x' ♯ Γ'" using obtain_fresh by blast
+  then have "(x', τ1) # Γ' ⊢ e : τ2" sorry
+  then show ?case sorry
+next
+  case (T_AppI Γ e1 τ1 τ2 e2)
+  then show ?case by (metis T.T_AppI Un_iff term.fv_defs(3))
+next
+  case (T_LetI x Γ τ1 e2 τ2 e1)
+  then show ?case sorry
+qed
+
 lemma free_in_context: "⟦ atom (x::name) ∈ fv_term e ; Γ ⊢ e : τ ⟧ ⟹ ∃τ'. (x, τ') ∈ Γ"
 proof(nominal_induct e avoiding: x Γ τ rule: term.strong_induct)
   case (Var y)
@@ -11,10 +74,11 @@ proof(nominal_induct e avoiding: x Γ τ rule: term.strong_induct)
   then show ?case by blast
 next
   case (Lam y τ1 e)
-  then have 1: "atom y ≠ atom x" by simp
-  then have 2: "atom x ∈ fv_term e" using Lam fresh_def by fastforce
-  obtain τ2 where 3: "(y, τ1)#Γ ⊢ e : τ2" using T.cases[OF ‹Γ ⊢ (λ y : τ1 . e) : τ›] sorry
-  show ?case using 1 Lam(4)[OF 2 3] by simp
+  then have 1: "atom x ∈ fv_term e" using fresh_def by fastforce
+
+  from Lam obtain y' e' τ2 where 2: "(y', τ1)#Γ ⊢ e' : τ2 ∧ atom y' ♯ Γ ∧ (λy : τ1 . e) = (λy' : τ1 . e')" using T_Abs_Inv by blast
+
+  then show ?case sorry
 next
   case (App e1 e2)
   obtain τ1 where "Γ ⊢ e1 : τ1 → τ ∧ Γ ⊢ e2 : τ1" using T.cases[OF ‹Γ ⊢ App e1 e2 : τ›] by fastforce
@@ -39,11 +103,9 @@ next
   qed
 qed
 
-(*lemma fun_ty_lam: "⟦ is_v_of_e e ; Γ ⊢ e : τ1 → τ2 ⟧ ⟹ ∃x e'. e = (λx:τ1. e')"
+lemma fun_ty_lam: "⟦ is_v_of_e e ; Γ ⊢ e : τ1 → τ2 ⟧ ⟹ ∃x e'. e = (λx:τ1. e')"
   apply (cases e)
-  apply auto
-  using T.cases by blast+
-  done
+  sorry
 
 theorem progress: "[] ⊢ e : τ ⟹ is_v_of_e e ∨ (∃e'. Step e e')"
 proof (induction "[] :: Γ" e τ rule: T.induct)
@@ -84,7 +146,7 @@ next
   then show ?case using ST_SubstI ST_LetI by blast
 qed
 
-definition closed :: "e ⇒ bool" where
+(*definition closed :: "e ⇒ bool" where
   "closed x ≡ fve_e x = []"
 
 
