@@ -2,70 +2,27 @@ theory Soundness
   imports Defs
 begin
 
-lemma var_unused: "⟦ atom x ∉ fv_term e ; atom y ♯ e ⟧ ⟹ (λx : τ . e) = (λy : τ . e)"
-proof(nominal_induct e avoiding: x y τ rule: term.strong_induct)
-  case (Var z)
-  then show ?case
-    apply auto
-    using flip_fresh_fresh fresh_def by blast
-next
-  case (Lam z τ1 e')
-  then show ?case
-    apply (auto simp: flip_fresh_fresh)
-    using fresh_at_base(2) by blast
-next
-  case (App e1 e2)
-  then show ?case by simp
-next
-  case Unit
-  then show ?case by simp
-next
-  case (Let z e1 e2)
-  then show ?case
-    apply (auto simp: flip_fresh_fresh)
-    using fresh_at_base(2) by blast
-qed
-
-
-lemma rename_var: "⟦ atom y ♯ e ; (λx : τ1 . e) = (λy : τ1 . e') ⟧ ⟹ e = esubst_e (Var x) y e'"
-proof(nominal_induct e avoiding: x y τ1 e' rule: term.strong_induct)
-  case (Var x)
-  then show ?case sorry
-next
-  case (Lam x1a x2 x3)
-  then show ?case sorry
-next
-  case (App x1a x2)
-  then show ?case sorry
-next
-  case Unit
-  then show ?case sorry
-next
-  case (Let x1a x2 x3)
-  then show ?case sorry
-qed
-
-lemma context_invariance: "⟦ Γ ⊢ e : τ ; ∀x τ'. atom x ∈ fv_term e ∧ (x, τ') ∈ Γ ⟶ (x, τ')∈Γ' ⟧ ⟹ Γ' ⊢ e : τ"
-proof(induction Γ e τ arbitrary: Γ' rule: T.induct)
+lemma context_invariance: "⟦ Γ ⊢ e : τ ; ∀x τ'. atom x ∈ fv_term e ∧ (x, τ') ∈ Γ ⟶ (x, τ') ∈ Γ' ⟧ ⟹ Γ' ⊢ e : τ"
+proof(nominal_induct Γ e τ avoiding: Γ' rule: T.strong_induct)
   case (T_UnitI Γ)
-  then show ?case by (simp add: T.T_UnitI)
+  then show ?case using T.T_UnitI by simp
 next
   case (T_VarI x τ Γ)
-  then show ?case by (simp add: T.T_VarI supp_at_base)
+  then show ?case using T.T_VarI supp_at_base by fastforce
 next
   case (T_AbsI x Γ τ1 e τ2)
-  obtain x'::"name" where 1: "atom x' ♯ Γ'" using obtain_fresh by blast
-  then have "(x', τ1) # Γ' ⊢ e : τ2" sorry
-  then show ?case sorry
+  then show ?case using T.T_AbsI by fastforce
 next
   case (T_AppI Γ e1 τ1 τ2 e2)
   then show ?case by (metis T.T_AppI Un_iff term.fv_defs(3))
 next
-  case (T_LetI x Γ τ1 e2 τ2 e1)
-  then show ?case sorry
+  case (T_LetI x Γ e1 τ1 e2 τ2)
+  then have 1: "atom x ♯ (Γ', e1)" by simp
+  from T_LetI have 2: "(x, τ1) # Γ' ⊢ e2 : τ2" by simp
+  show ?case using T.T_LetI[OF 1 2] using T_LetI by simp
 qed
 
-lemma free_in_context: "⟦ atom (x::name) ∈ fv_term e ; Γ ⊢ e : τ ⟧ ⟹ ∃τ'. (x, τ') ∈ Γ"
+(*lemma free_in_context: "⟦ atom (x::name) ∈ fv_term e ; Γ ⊢ e : τ ⟧ ⟹ ∃τ'. (x, τ') ∈ Γ"
 proof(nominal_induct e avoiding: x Γ τ rule: term.strong_induct)
   case (Var y)
   then have "fv_term (Var y) = { atom y }" unfolding supp_def by (simp add: supp_at_base)
@@ -146,7 +103,7 @@ next
   then show ?case using ST_SubstI ST_LetI by blast
 qed
 
-(*definition closed :: "e ⇒ bool" where
+definition closed :: "e ⇒ bool" where
   "closed x ≡ fve_e x = []"
 
 

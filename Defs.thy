@@ -15,6 +15,8 @@ nominal_datatype "term" =
  | Unit
  | Let x::"name" "term" e2::"term" binds x in e2
 
+
+
 declare term.fv_defs[simp]
 
 lemma no_vars_in_ty[simp]: "atom x \<sharp> (ty :: \<tau>)"
@@ -144,21 +146,12 @@ T_UnitI: "(\<Gamma> \<turnstile> Unit : TyUnit)"
 (\<Gamma> \<turnstile> e2 : \<tau>1)\<rbrakk> \<Longrightarrow>
 (\<Gamma> \<turnstile> (App e1 e2) : \<tau>2)"
 
-| T_LetI: "\<lbrakk>atom x \<sharp> \<Gamma> ;
+| T_LetI: "\<lbrakk>atom x \<sharp> (\<Gamma>, e1) ;
 ( ( x ,  \<tau>1 ) # \<Gamma>  \<turnstile> e2 : \<tau>2) ; (\<Gamma> \<turnstile> e1 : \<tau>1)\<rbrakk> \<Longrightarrow>
 (\<Gamma> \<turnstile>  (Let x e1 e2)  : \<tau>2)"
 
-lemma T_Var_Inv: "\<Gamma> \<turnstile> Var x : \<tau> \<Longrightarrow> (x, \<tau>) \<in> \<Gamma>"
-  using T.cases by fastforce
-
-lemma T_Abs_Inv:
-  assumes a: "\<Gamma> \<turnstile> (\<lambda>x : \<tau>1 . e) : \<tau>"
-  shows "\<exists>x' e' \<tau>2. (x', \<tau>1)#\<Gamma> \<turnstile> e' : \<tau>2 \<and> atom x' \<sharp> \<Gamma> \<and> (\<lambda>x : \<tau>1 . e) = (\<lambda>x' : \<tau>1 . e')"
-proof (cases rule: T.cases[OF a])
-  case (3 x' \<Gamma>' \<tau>1' e' \<tau>2')
-  then show ?thesis by auto
-qed simp_all
-  
+lemma rename_var: "\<lbrakk> atom y \<sharp> e ; (\<lambda>x : \<tau>1 . e) = (\<lambda>y : \<tau>1 . e') \<rbrakk> \<Longrightarrow> e = (x \<leftrightarrow> y) \<bullet> e'"
+  by (metis Abs1_eq_iff(3) flip_fresh_fresh term.eq_iff(2))  
 
 lemma fresh_not_isin: "atom x \<sharp> \<Gamma> \<Longrightarrow> \<nexists>t'. isin (x, t') \<Gamma>"
   apply (induction \<Gamma>)
@@ -167,7 +160,13 @@ lemma fresh_not_isin: "atom x \<sharp> \<Gamma> \<Longrightarrow> \<nexists>t'. 
   done
 
 equivariance T
-nominal_inductive T .
+nominal_inductive T avoids
+  T_AbsI: x
+  | T_LetI: x
+     apply auto
+  apply freshness+
+  done
+  
 
 (** definitions *)
 (* defns Jst *)
