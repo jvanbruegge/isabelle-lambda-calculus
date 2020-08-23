@@ -207,22 +207,28 @@ next
   show ?case using T_LetI[OF 0 4 3] using Let by simp
 qed
 
-(*theorem preservation: "⟦ [] ⊢ e : τ ; Step e e' ⟧ ⟹ [] ⊢ e' : τ"
-proof (induction "[] :: Γ" e τ arbitrary: e' rule: T.induct)
-case T_UnitI
-  then show ?case using Step.cases by blast
+theorem preservation: "⟦ [] ⊢ e : τ ; Step e e' ⟧ ⟹ [] ⊢ e' : τ"
+proof (nominal_induct "[] :: Γ" e τ arbitrary: e' rule: T.strong_induct)
+  case T_UnitI
+  then show ?case using Step.cases by fastforce
 next
   case (T_VarI x τ)
-  then show ?case using Step.cases by blast
+  then show ?case by simp
 next
   case (T_AbsI x τ1 e τ2)
-  then show ?case using Step.cases by blast
+  then show ?case using Step.cases by fastforce
 next
   case (T_AppI e1 τ1 τ2 e2)
   from ‹App e1 e2 ⟶ e'› show ?case
   proof cases
     case (ST_BetaI x τ e)
-    then show ?thesis using substitution T.cases T_AppI by blast
+    then have "τ = τ1" using T_AppI.hyps(1) fun_ty_lam is_v_of_e.simps(2) term.eq_iff(2) by blast
+    then have 1: "[] ⊢ e2 : τ" using T_AppI(3) by simp
+
+    have "[] ⊢ λ x : τ . e : τ1 → τ2" using T_AppI ST_BetaI by blast
+    then have 2: "[(x, τ)] ⊢ e : τ2" using T_Abs_Inv fresh_Nil by fastforce
+
+    show ?thesis using substitution[OF 2 1] ST_BetaI by simp
   next
     case (ST_AppI e2)
     then show ?thesis using T_AppI T.T_AppI by blast
@@ -231,18 +237,29 @@ next
     then show ?thesis using T_AppI T.T_AppI by blast
   qed
 next
-  case (T_LetI e1 τ1 x e2 τ2)
+  case (T_LetI x e1 τ1 e2 τ2)
   from ‹Let x e1 e2 ⟶ e'› show ?case
-  proof (cases)
-    case ST_SubstI
-    then show ?thesis using substitution T.cases T_LetI by blast
+  proof cases
+    case (ST_SubstI y e)
+
+    then show ?thesis
+    proof (cases "atom x = atom y")
+      case True
+      then show ?thesis by (metis Abs1_eq(3) T_LetI.hyps(3) T_LetI.hyps(4) atom_eq_iff local.ST_SubstI(1) local.ST_SubstI(2) substitution)
+    next
+      case False
+      then have 1: "atom y ♯ [(x, τ1)]" by (simp add: fresh_Cons fresh_Nil)
+      have "(x ↔ y) ∙ e2 = e" by (metis Abs1_eq_iff'(3) False flip_commute local.ST_SubstI(1))
+      then have "[(y, τ1)] ⊢ e : τ2" using swap_term[OF T_LetI(3) 1, of x] by (simp add: flip_fresh_fresh)
+      then show ?thesis using T_LetI ST_SubstI substitution by auto
+    qed
   next
-    case (ST_LetI e2)
-    then show ?thesis using T_LetI T.T_LetI by blast
+    case (ST_LetI e2 x e)
+    then show ?thesis by (metis (no_types, lifting) T.T_LetI T_LetI.hyps(1) T_LetI.hyps(3) T_LetI.hyps(5) fresh_Pair fresh_term term.eq_iff(5))
   qed
 qed
 
-definition stuck :: "e ⇒ bool" where
+(*definition stuck :: "e ⇒ bool" where
   "stuck e ≡ ¬(is_v_of_e e ∨ (∃e'. Step e e'))"
 
 inductive Steps :: "e ⇒ e ⇒ bool" (infix "⟶*" 70) where
