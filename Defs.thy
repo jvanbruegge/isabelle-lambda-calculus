@@ -150,9 +150,6 @@ T_UnitI: "(\<Gamma> \<turnstile> Unit : TyUnit)"
 ( ( x ,  \<tau>1 ) # \<Gamma>  \<turnstile> e2 : \<tau>2) ; (\<Gamma> \<turnstile> e1 : \<tau>1)\<rbrakk> \<Longrightarrow>
 (\<Gamma> \<turnstile>  (Let x e1 e2)  : \<tau>2)"
 
-lemma rename_var: "\<lbrakk> atom y \<sharp> e ; (\<lambda>x : \<tau>1 . e) = (\<lambda>y : \<tau>1 . e') \<rbrakk> \<Longrightarrow> e = (x \<leftrightarrow> y) \<bullet> e'"
-  by (metis Abs1_eq_iff(3) flip_fresh_fresh term.eq_iff(2))  
-
 lemma fresh_not_isin: "atom x \<sharp> \<Gamma> \<Longrightarrow> \<nexists>t'. isin (x, t') \<Gamma>"
   apply (induction \<Gamma>)
    apply simp

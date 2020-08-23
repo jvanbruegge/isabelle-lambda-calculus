@@ -40,6 +40,12 @@ next
   then show ?case by (metis Diff_iff UnE fresh_at_base(2) isin.simps(2) term.fv_defs(5))
 qed
 
+lemma fresh_term[simp]: "⟦ Γ ⊢ e : τ ; atom x ♯ Γ ⟧ ⟹ atom x ♯ e"
+  apply (nominal_induct Γ e τ avoiding: x rule: T.strong_induct)
+      apply (auto simp: fresh_Cons)
+  using fresh_ineq_at_base fresh_not_isin apply force
+  done
+
 lemma fun_ty_lam: "⟦ Γ ⊢ e : τ1 → τ2 ; is_v_of_e e ⟧ ⟹ ∃x e'. e = (λx:τ1. e')"
   by (nominal_induct Γ e "τ1 → τ2" rule: T.strong_induct) auto
 
@@ -133,9 +139,29 @@ proof (cases rule: T.cases[OF a])
   qed
 qed simp_all
 
+lemma T_Let_Inv:
+  assumes a: "Γ ⊢ Let x e1 e2 : τ" and b: "atom x ♯ Γ"
+  shows "∃τ1. Γ ⊢ e1 : τ1 ∧ (x, τ1)#Γ ⊢ e2 : τ"
+proof (cases rule: T.cases[OF a])
+  case (5 x' Γ' _ τ1 e2' τ2)
+  show ?thesis
+  proof (cases "atom x' = atom x")
+    case True
+    then show ?thesis by (metis "5"(1) "5"(2) "5"(3) "5"(5) "5"(6) Abs1_eq_iff(3) atom_eq_iff term.eq_iff(5))
+  next
+    case False
+    then have 1: "atom x ♯ (x', τ1) # Γ'" using b by (simp add: 5 fresh_Cons)
+    have 2: "((x' ↔ x) ∙ ((x', τ1)#Γ)) ⊢ (x' ↔ x) ∙ e2' : τ" using swap_term[OF "5"(5) 1, of x'] 5 by blast
+
+    have 3: "(x' ↔ x) ∙ e2' = e2" by (metis "5"(2) Abs1_eq_iff(3) False flip_commute term.eq_iff(5))
+    have 4: "((x' ↔ x) ∙ ((x', τ1) # Γ)) = (x, τ1)#Γ" by (smt "5"(1) "5"(4) Cons_eqvt Pair_eqvt b flip_at_simps(1) flip_fresh_fresh fresh_PairD(1) no_vars_in_ty)
+
+    from 2 3 4 5 show ?thesis by auto
+  qed
+qed simp_all
+
 definition closed :: "term ⇒ bool" where
   "closed x ≡ fv_term x = {}"
-
 
 lemma typeable_closed: "[] ⊢ e : τ ⟹ closed e"
   sorry
@@ -155,47 +181,30 @@ proof (nominal_induct e avoiding: Γ τ v x τ' rule: term.strong_induct)
   qed
 next
   case (Lam y σ e)
-  let ?lam = "λ y : σ . e"
-
-  obtain τ2 y' e' where P: "(y', σ)#(x, τ')#Γ ⊢ e' : τ2 ∧ τ = (σ → τ2)" by (cases rule: T.cases[OF Lam(7)]) auto
-
-  note IH = Lam(6)
-  then show ?case using T_AbsI context_invariance
-
-  from Lam show ?case
-  proof (cases "x = y")
-    case True
-    then show ?thesis using Lam sorry
-  next
-    case False
-    then obtain τ2 where P: "τ = (σ → τ2)" using Lam(2) T.cases sorry
-    then have "(y, σ)#(x, τ')#Γ ⊢ e : τ2" using T.cases Lam sorry
-    then have "(x, τ')#(y, σ)#Γ ⊢ e : τ2" using context_invariance False by force
-    then show ?thesis using False Lam T_AbsI P by simp
-  qed
+  then obtain τ2 where P: "(y, σ)#(x, τ')#Γ ⊢ e : τ2 ∧ τ = (σ → τ2)" using T_Abs_Inv[OF Lam(7)] fresh_Cons fresh_PairE by blast
+  then have "(x, τ')#(y, σ)#Γ ⊢ e : τ2" using context_invariance ‹atom y ♯ x› by auto
+  then show ?case using Lam T_AbsI P by simp
 next
   case (App e1 e2)
-  from ‹(x, τ') # Γ ⊢ App e1 e2 : τ› obtain τ1 where P: "((x, τ') # Γ ⊢ e1 : τ1 → τ) ∧ ((x, τ') # Γ ⊢ e2 : τ1)" using T.cases sorry
+  obtain τ1 where P: "((x, τ') # Γ ⊢ e1 : τ1 → τ) ∧ ((x, τ') # Γ ⊢ e2 : τ1)" using T.cases[OF App(3)] by fastforce
   then show ?case using T_AppI App by fastforce
 next
   case Unit
-  then show ?case apply auto using T_UnitI T.cases sorry
+  then show ?case using T.cases[OF Unit(1)] T_UnitI by auto
 next
   case (Let y e1 e2)
-  from Let(3) obtain τ1 where P: "(x, τ')#Γ ⊢ e1 : τ1 ∧ (y, τ1)#(x, τ')#Γ ⊢ e2 : τ" using T.cases by blast
-  from Let show ?case
-  proof (cases "x = y")
-    case True
-    then have x: "esubst_e v x (Let y e1 e2) = Let y (esubst_e v x e1) e2" by simp
-    then have e1: "Γ ⊢ esubst_e v x e1 : τ1" using Let P by blast
-    from True Let have e2: "(y, τ1) # Γ ⊢ e2 : τ" by (smt P context_invariance isin.simps(2))
-    then show ?thesis using T_LetI[OF e1 e2] x by simp
-  next
-    case False
-    then have "(x, τ')#(y, τ1)#Γ ⊢ e2 : τ" using P context_invariance by fastforce
-    then show ?thesis
-      by (smt False Let.IH(1) Let.IH(2) Let.prems(2) P T_LetI empty_iff esubst_e.simps(5) list.set(1) set_ConsD)
-  qed
+  have "atom y ♯ e1" using Let.hyps(1) Let.hyps(4) Let.prems(1) T_Let_Inv fresh_Cons fresh_Pair fresh_term no_vars_in_ty by blast
+  then have "atom y ♯ esubst_e v x e1" by (simp add: Let.hyps(3) fresh_esubst_e) 
+  then have 0: "atom y ♯ (Γ, esubst_e v x e1)" using Let fresh_Pair by simp
+
+  obtain τ1 where P: "(x, τ')#Γ ⊢ e1 : τ1 ∧ (y, τ1)#(x, τ')#Γ ⊢ e2 : τ" using T_Let_Inv[OF Let(8)] Let fresh_Cons fresh_Pair by blast
+  then have 1: "(x, τ')#(y, τ1)#Γ ⊢ e2 : τ" using context_invariance Let(4) by force
+  from P have 2: "(x, τ')#Γ ⊢ e1 : τ1" by simp
+
+  have 3: "Γ ⊢ esubst_e v x e1 : τ1" using Let(6)[OF 2 Let(9)] .
+  have 4: "(y, τ1)#Γ ⊢ esubst_e v x e2 : τ" using Let(7)[OF 1 Let(9)] .
+
+  show ?case using T_LetI[OF 0 4 3] using Let by simp
 qed
 
 (*theorem preservation: "⟦ [] ⊢ e : τ ; Step e e' ⟧ ⟹ [] ⊢ e' : τ"
