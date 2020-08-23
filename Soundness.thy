@@ -160,13 +160,7 @@ proof (cases rule: T.cases[OF a])
   qed
 qed simp_all
 
-definition closed :: "term ⇒ bool" where
-  "closed x ≡ fv_term x = {}"
-
-lemma typeable_closed: "[] ⊢ e : τ ⟹ closed e"
-  sorry
-
-lemma substitution: "⟦ (x, τ')#Γ ⊢ e : τ ; [] ⊢ v : τ' ⟧ ⟹ Γ ⊢ esubst_e v x e : τ"
+lemma substitution: "⟦ (x, τ')#Γ ⊢ e : τ ; [] ⊢ v : τ' ⟧ ⟹ Γ ⊢ subst_term v x e : τ"
 proof (nominal_induct e avoiding: Γ τ v x τ' rule: term.strong_induct)
   case (Var y)
   then show ?case
@@ -177,7 +171,7 @@ proof (nominal_induct e avoiding: Γ τ v x τ' rule: term.strong_induct)
   next
     case False
     then show ?thesis using Var context_invariance
-      by (metis (no_types, lifting) Rep_name_inverse atom_name_def esubst_e.simps(1) isin.simps(2) singletonD supp_at_base term.fv_defs(1))
+      by (metis (no_types, lifting) Rep_name_inverse atom_name_def subst_term.simps(1) isin.simps(2) singletonD supp_at_base term.fv_defs(1))
   qed
 next
   case (Lam y σ e)
@@ -194,15 +188,15 @@ next
 next
   case (Let y e1 e2)
   have "atom y ♯ e1" using Let.hyps(1) Let.hyps(4) Let.prems(1) T_Let_Inv fresh_Cons fresh_Pair fresh_term no_vars_in_ty by blast
-  then have "atom y ♯ esubst_e v x e1" by (simp add: Let.hyps(3) fresh_esubst_e) 
-  then have 0: "atom y ♯ (Γ, esubst_e v x e1)" using Let fresh_Pair by simp
+  then have "atom y ♯ subst_term v x e1" by (simp add: Let.hyps(3) fresh_subst_term) 
+  then have 0: "atom y ♯ (Γ, subst_term v x e1)" using Let fresh_Pair by simp
 
   obtain τ1 where P: "(x, τ')#Γ ⊢ e1 : τ1 ∧ (y, τ1)#(x, τ')#Γ ⊢ e2 : τ" using T_Let_Inv[OF Let(8)] Let fresh_Cons fresh_Pair by blast
   then have 1: "(x, τ')#(y, τ1)#Γ ⊢ e2 : τ" using context_invariance Let(4) by force
   from P have 2: "(x, τ')#Γ ⊢ e1 : τ1" by simp
 
-  have 3: "Γ ⊢ esubst_e v x e1 : τ1" using Let(6)[OF 2 Let(9)] .
-  have 4: "(y, τ1)#Γ ⊢ esubst_e v x e2 : τ" using Let(7)[OF 1 Let(9)] .
+  have 3: "Γ ⊢ subst_term v x e1 : τ1" using Let(6)[OF 2 Let(9)] .
+  have 4: "(y, τ1)#Γ ⊢ subst_term v x e2 : τ" using Let(7)[OF 1 Let(9)] .
 
   show ?case using T_LetI[OF 0 4 3] using Let by simp
 qed
@@ -259,10 +253,10 @@ next
   qed
 qed
 
-(*definition stuck :: "e ⇒ bool" where
+definition stuck :: "term ⇒ bool" where
   "stuck e ≡ ¬(is_v_of_e e ∨ (∃e'. Step e e'))"
 
-inductive Steps :: "e ⇒ e ⇒ bool" (infix "⟶*" 70) where
+inductive Steps :: "term ⇒ term ⇒ bool" (infix "⟶*" 70) where
   refl: "Steps e e"
 | trans: "⟦ Steps e1 e2 ; Step e2 e3 ⟧ ⟹ Steps e1 e3"
 
@@ -273,5 +267,5 @@ lemma multi_preservation: "⟦ e ⟶* e' ; [] ⊢ e : τ ⟧ ⟹ [] ⊢ e' : τ"
 corollary soundness: "⟦ [] ⊢ e : τ ; e ⟶* e' ⟧ ⟹ ¬(stuck e')"
   unfolding stuck_def
   using progress multi_preservation by blast
-*)
+
 end

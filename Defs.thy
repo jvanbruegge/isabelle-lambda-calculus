@@ -105,13 +105,13 @@ lemma fresh_PairE: "(a \<sharp> (x, y) \<Longrightarrow> P) \<Longrightarrow> (a
 
 (** substitutions *)
 nominal_function
-esubst_e :: "term => name => term => term"
+subst_term :: "term => name => term => term"
 where
-"esubst_e e_5 x5 (Var x) = ((if x=x5 then e_5 else (Var x)))"
-| "atom x \<sharp> (x5, e_5) \<Longrightarrow> esubst_e e_5 x5 (\<lambda> x : \<tau> . e) = (Lam x \<tau> (esubst_e e_5 x5 e))"
-| "esubst_e e_5 x5 (App e1 e2) = (App (esubst_e e_5 x5 e1) (esubst_e e_5 x5 e2))"
-| "esubst_e e_5 x5 Unit = (Unit )"
-| "atom x \<sharp> (x5, e_5) \<Longrightarrow> esubst_e e_5 x5 (Let x e1 e2) = (Let x (esubst_e e_5 x5 e1) (esubst_e e_5 x5 e2))"
+"subst_term e_5 x5 (Var x) = ((if x=x5 then e_5 else (Var x)))"
+| "atom x \<sharp> (x5, e_5) \<Longrightarrow> subst_term e_5 x5 (\<lambda> x : \<tau> . e) = (Lam x \<tau> (subst_term e_5 x5 e))"
+| "subst_term e_5 x5 (App e1 e2) = (App (subst_term e_5 x5 e1) (subst_term e_5 x5 e2))"
+| "subst_term e_5 x5 Unit = (Unit )"
+| "atom x \<sharp> (x5, e_5) \<Longrightarrow> subst_term e_5 x5 (Let x e1 e2) = (Let x (subst_term e_5 x5 e1) (subst_term e_5 x5 e2))"
                    apply(eqvt_graph_aux, rule TrueI)
                  apply(simp_all) apply(pat_comp_aux)
         apply(auto simp: fresh_star_def fresh_Pair)
@@ -122,7 +122,7 @@ where
   done
 nominal_termination (eqvt) by lexicographic_order
 
-lemma fresh_esubst_e: "\<lbrakk> atom z \<sharp> s ; z = y \<or> atom z \<sharp> t \<rbrakk> \<Longrightarrow> atom z \<sharp> esubst_e s y t"
+lemma fresh_subst_term: "\<lbrakk> atom z \<sharp> s ; z = y \<or> atom z \<sharp> t \<rbrakk> \<Longrightarrow> atom z \<sharp> subst_term s y t"
   by (nominal_induct t avoiding: z y s rule: term.strong_induct) auto
 
 (** definitions *)
@@ -175,7 +175,7 @@ where
 | (* defn Step *)
 
 ST_BetaI: "\<lbrakk>is_v_of_e v\<rbrakk> \<Longrightarrow>
-((App  (\<lambda> x : \<tau> . e)  v) \<longrightarrow>  esubst_e  v   x   e )"
+((App  (\<lambda> x : \<tau> . e)  v) \<longrightarrow>  subst_term  v   x   e )"
 
 | ST_AppI: "\<lbrakk>(e1 \<longrightarrow> e2)\<rbrakk> \<Longrightarrow>
 ((App e1 e) \<longrightarrow> (App e2 e))"
@@ -185,7 +185,7 @@ ST_BetaI: "\<lbrakk>is_v_of_e v\<rbrakk> \<Longrightarrow>
 ((App v e1) \<longrightarrow> (App v e2))"
 
 | ST_SubstI: "\<lbrakk>is_v_of_e v\<rbrakk> \<Longrightarrow>
-((Let x v e) \<longrightarrow>  esubst_e  v   x   e )"
+((Let x v e) \<longrightarrow>  subst_term  v   x   e )"
 
 | ST_LetI: "\<lbrakk>(e1 \<longrightarrow> e2)\<rbrakk> \<Longrightarrow>
 ((Let x e1 e) \<longrightarrow> (Let x e2 e))"
