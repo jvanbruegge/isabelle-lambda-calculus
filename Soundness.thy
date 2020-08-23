@@ -175,7 +175,7 @@ proof (nominal_induct e avoiding: Γ τ v x τ' rule: term.strong_induct)
   qed
 next
   case (Lam y σ e)
-  then obtain τ2 where P: "(y, σ)#(x, τ')#Γ ⊢ e : τ2 ∧ τ = (σ → τ2)" using T_Abs_Inv[OF Lam(7)] fresh_Cons fresh_PairE by blast
+  then obtain τ2 where P: "(y, σ)#(x, τ')#Γ ⊢ e : τ2 ∧ τ = (σ → τ2)" using T_Abs_Inv[OF Lam(7)] fresh_Cons fresh_Pair by blast
   then have "(x, τ')#(y, σ)#Γ ⊢ e : τ2" using context_invariance ‹atom y ♯ x› by auto
   then show ?case using Lam T_AbsI P by simp
 next
