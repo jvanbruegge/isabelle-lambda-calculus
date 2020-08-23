@@ -112,6 +112,27 @@ next
     by (smt "1" T_LetI.hyps(1) flip_fresh_fresh fresh_Cons fresh_PairD(1) fresh_at_base(2) term.perm_simps(5))
 qed
 
+lemma T_Abs_Inv:
+  assumes a: "Γ ⊢ (λx : τ1 . e) : τ" and b: "atom x ♯ Γ"
+  shows "∃τ2. (x, τ1)#Γ ⊢ e : τ2 ∧ τ = (τ1 → τ2)"
+proof (cases rule: T.cases[OF a])
+  case (3 x' Γ' τ1' e' τ2)
+  then show ?thesis
+  proof (cases "atom x' = atom x")
+    case True
+    then show ?thesis by (metis "3"(1) "3"(2) "3"(3) "3"(5) Abs1_eq_iff(3) atom_eq_iff term.eq_iff(2))
+  next
+    case False
+    then have 1: "atom x ♯ (x', τ1') # Γ'" using b by (simp add: 3 fresh_Cons) 
+    have 2: "((x' ↔ x) ∙ ((x', τ1) # Γ)) ⊢ (x' ↔ x) ∙ e' : τ2" using swap_term[OF "3"(5) 1, of x'] 3 by auto
+
+    have 4: "(x' ↔ x) ∙ e' = e" by (metis "3"(2) Abs1_eq_iff(3) False flip_commute term.eq_iff(2))
+    have 5: "((x' ↔ x) ∙ ((x', τ1) # Γ)) = (x, τ1)#Γ" by (smt "3"(1) "3"(4) Cons_eqvt Pair_eqvt b flip_at_simps(1) flip_fresh_fresh no_vars_in_ty)
+
+    from 2 3 4 5 show ?thesis by auto
+  qed
+qed simp_all
+
 definition closed :: "term ⇒ bool" where
   "closed x ≡ fv_term x = {}"
 
