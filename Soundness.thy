@@ -22,47 +22,26 @@ next
   show ?case using T.T_LetI[OF 1 2] using T_LetI by simp
 qed
 
-(*lemma free_in_context: "⟦ atom (x::name) ∈ fv_term e ; Γ ⊢ e : τ ⟧ ⟹ ∃τ'. (x, τ') ∈ Γ"
-proof(nominal_induct e avoiding: x Γ τ rule: term.strong_induct)
-  case (Var y)
-  then have "fv_term (Var y) = { atom y }" unfolding supp_def by (simp add: supp_at_base)
-  then have "atom x = atom y" using ‹atom x ∈ fv_term (Var y)› by simp
-  then have "(x, τ) ∈ Γ" using T.cases[OF ‹Γ ⊢ Var y : τ›] by fastforce
-  then show ?case by blast
-next
-  case (Lam y τ1 e)
-  then have 1: "atom x ∈ fv_term e" using fresh_def by fastforce
-
-  from Lam obtain y' e' τ2 where 2: "(y', τ1)#Γ ⊢ e' : τ2 ∧ atom y' ♯ Γ ∧ (λy : τ1 . e) = (λy' : τ1 . e')" using T_Abs_Inv by blast
-
-  then show ?case sorry
-next
-  case (App e1 e2)
-  obtain τ1 where "Γ ⊢ e1 : τ1 → τ ∧ Γ ⊢ e2 : τ1" using T.cases[OF ‹Γ ⊢ App e1 e2 : τ›] by fastforce
-  then show ?case using App by auto
-next
-  case Unit
+lemma free_in_context: "⟦ Γ ⊢ e : τ ; atom x ∈ fv_term e ⟧ ⟹ ∃τ'. (x, τ') ∈ Γ"
+proof(nominal_induct Γ e τ avoiding: x rule: T.strong_induct)
+  case (T_UnitI Γ)
   then show ?case by simp
 next
-  case (Let y e1 e2)
-  obtain τ' where P: "Γ ⊢ e1 : τ'" using T.cases[OF ‹Γ ⊢ Let y e1 e2 : τ›] by fastforce
-  from Let have "atom x ∈ fv_term e1 ∨ atom x ∈ fv_term e2" by auto
-  then show ?case
-  proof
-    assume x: "atom x ∈ fv_term e1"
-    obtain τ' where P: "Γ ⊢ e1 : τ'" using T.cases[OF ‹Γ ⊢ Let y e1 e2 : τ›] by fastforce
-    show ?thesis using Let(4)[OF x P] by simp
-  next
-    assume x: "atom x ∈ fv_term e2"
-    from Let have 1: "atom x ≠ atom y" by simp
-    have P: "(y, τ')#Γ ⊢ e2 : τ" using T.cases[OF ‹Γ ⊢ Let y e1 e2 : τ›] sorry
-    show ?thesis using Let(5)[OF x P] 1 by simp
-  qed
+  case (T_VarI x' τ Γ)
+  then show ?case by (metis atom_eq_iff singletonD supp_at_base term.fv_defs(1))
+next
+  case (T_AbsI x' Γ τ1 e τ2)
+  then show ?case by (metis Diff_iff Un_iff fresh_def insert_iff isin.simps(2) list.set(2) no_vars_in_ty term.fv_defs(2))
+next
+  case (T_AppI Γ e1 τ1 τ2 e2)
+  then show ?case by auto
+next
+  case (T_LetI x' Γ e1 τ1 e2 τ2)
+  then show ?case by (metis Diff_iff UnE fresh_at_base(2) isin.simps(2) term.fv_defs(5))
 qed
 
-lemma fun_ty_lam: "⟦ is_v_of_e e ; Γ ⊢ e : τ1 → τ2 ⟧ ⟹ ∃x e'. e = (λx:τ1. e')"
-  apply (cases e)
-  sorry
+lemma fun_ty_lam: "⟦ Γ ⊢ e : τ1 → τ2 ; is_v_of_e e ⟧ ⟹ ∃x e'. e = (λx:τ1. e')"
+  by (nominal_induct Γ e "τ1 → τ2" rule: T.strong_induct) auto
 
 theorem progress: "[] ⊢ e : τ ⟹ is_v_of_e e ∨ (∃e'. Step e e')"
 proof (induction "[] :: Γ" e τ rule: T.induct)
@@ -103,35 +82,45 @@ next
   then show ?case using ST_SubstI ST_LetI by blast
 qed
 
-definition closed :: "e ⇒ bool" where
-  "closed x ≡ fve_e x = []"
-
-
-corollary typeable_closed: "[] ⊢ e : τ ⟹ closed e"
-  unfolding closed_def
-  using free_in_context last_in_set by fastforce
-
-lemma context_invariance: "⟦ Γ ⊢ e : τ ; ∀x τ'. x ∈ set (fve_e e) ∧ (x, τ') ∈ Γ ⟶ (x, τ')∈Γ' ⟧ ⟹ Γ' ⊢ e : τ"
-proof (induction Γ e τ arbitrary: Γ' rule: T.induct)
+lemma swap_term: "⟦ Γ ⊢ e : τ ; atom y ♯ Γ ⟧ ⟹ ((x ↔ y) ∙ Γ) ⊢ (x ↔ y) ∙ e : τ"
+proof (nominal_induct Γ e τ avoiding: x y rule: T.strong_induct)
   case (T_UnitI Γ)
   then show ?case by (simp add: T.T_UnitI)
 next
-  case (T_VarI x τ Γ)
-  then show ?case by (auto simp: T.T_VarI)
+  case (T_VarI z τ Γ)
+  then show ?case
+    by (metis T.T_VarI T.eqvt flip_fresh_fresh no_vars_in_ty)
 next
-  case (T_AbsI y τ1 Γ e τ2)
-  then show ?case by (simp add: T.T_AbsI list_minus_set)
+  case (T_AbsI x Γ τ1 e τ2)
+  then show ?case
+    by (metis T.T_AbsI T.eqvt flip_fresh_fresh no_vars_in_ty)
 next
   case (T_AppI Γ e1 τ1 τ2 e2)
-  then show ?case by auto (metis (mono_tags, lifting) T.T_AppI)
+  then show ?case using T.T_AppI by fastforce
 next
-  case (T_LetI e1 τ1 x e2 τ2)
-  then show ?case apply auto
-    by (smt DiffI T.T_LetI empty_iff insertE isin.simps(2) list.set(1) list.set(2) list_minus_set) 
+  case (T_LetI z Γ e1 τ1 e2 τ2)
+  then have 1: "atom y ♯ (z, τ1) # Γ" by (simp add: fresh_Cons fresh_at_base(2))
+
+  from T_LetI have e1: "atom z ♯ (x ↔ y) ∙ e1" by (smt eq_eqvt flip_def fresh_at_base(2) fresh_eqvt swap_atom_simps(3))
+  from T_LetI have "atom z ♯ (x ↔ y) ∙ Γ" by (metis flip_def fresh_at_base(2) fresh_permute_iff swap_atom_simps(3))
+  then have 2: "atom z ♯ ((x ↔ y) ∙ Γ, (x ↔ y) ∙ e1)" using T_LetI e1 by simp
+
+  from T_LetI have "(x ↔ y) ∙ ((z, τ1) # Γ) = (z, τ1)#((x ↔ y) ∙ Γ)" by (simp add: flip_fresh_fresh fresh_at_base(2))
+  then have 3: "(z, τ1) # (x ↔ y) ∙ Γ ⊢ (x ↔ y) ∙ e2 : τ2" using T_LetI(6)[OF 1, of x] by simp
+
+  show ?case using T.T_LetI[OF 2 3 T_LetI(8)[OF ‹atom y ♯ Γ›, of x]]
+    by (smt "1" T_LetI.hyps(1) flip_fresh_fresh fresh_Cons fresh_PairD(1) fresh_at_base(2) term.perm_simps(5))
 qed
 
+definition closed :: "term ⇒ bool" where
+  "closed x ≡ fv_term x = {}"
+
+
+lemma typeable_closed: "[] ⊢ e : τ ⟹ closed e"
+  sorry
+
 lemma substitution: "⟦ (x, τ')#Γ ⊢ e : τ ; [] ⊢ v : τ' ⟧ ⟹ Γ ⊢ esubst_e v x e : τ"
-proof (induction e arbitrary: Γ τ v x τ')
+proof (nominal_induct e avoiding: Γ τ v x τ' rule: term.strong_induct)
   case (Var y)
   then show ?case
   proof (cases "x = y")
@@ -140,31 +129,36 @@ proof (induction e arbitrary: Γ τ v x τ')
     then show ?thesis using True Var context_invariance by fastforce
   next
     case False
-    then show ?thesis using Var context_invariance by simp
+    then show ?thesis using Var context_invariance
+      by (metis (no_types, lifting) Rep_name_inverse atom_name_def esubst_e.simps(1) isin.simps(2) singletonD supp_at_base term.fv_defs(1))
   qed
 next
   case (Lam y σ e)
   let ?lam = "λ y : σ . e"
+
+  obtain τ2 y' e' where P: "(y', σ)#(x, τ')#Γ ⊢ e' : τ2 ∧ τ = (σ → τ2)" by (cases rule: T.cases[OF Lam(7)]) auto
+
+  note IH = Lam(6)
+  then show ?case using T_AbsI context_invariance
+
   from Lam show ?case
   proof (cases "x = y")
     case True
-    then have "esubst_e v x ?lam = ?lam" by simp
-    then show ?thesis
-      by (smt Diff_iff Lam.prems(1) True context_invariance fve_e.simps(2) insert_iff isin.simps(2) list.simps(15) list_minus_set)
+    then show ?thesis using Lam sorry
   next
     case False
-    then obtain τ2 where P: "τ = (σ → τ2)" using Lam(2) T.cases by blast
-    then have "(y, σ)#(x, τ')#Γ ⊢ e : τ2" using T.cases Lam by blast
+    then obtain τ2 where P: "τ = (σ → τ2)" using Lam(2) T.cases sorry
+    then have "(y, σ)#(x, τ')#Γ ⊢ e : τ2" using T.cases Lam sorry
     then have "(x, τ')#(y, σ)#Γ ⊢ e : τ2" using context_invariance False by force
     then show ?thesis using False Lam T_AbsI P by simp
   qed
 next
   case (App e1 e2)
-  from ‹(x, τ') # Γ ⊢ App e1 e2 : τ› obtain τ1 where P: "((x, τ') # Γ ⊢ e1 : τ1 → τ) ∧ ((x, τ') # Γ ⊢ e2 : τ1)" using T.cases by blast
+  from ‹(x, τ') # Γ ⊢ App e1 e2 : τ› obtain τ1 where P: "((x, τ') # Γ ⊢ e1 : τ1 → τ) ∧ ((x, τ') # Γ ⊢ e2 : τ1)" using T.cases sorry
   then show ?case using T_AppI App by fastforce
 next
   case Unit
-  then show ?case apply auto using T_UnitI T.cases by blast
+  then show ?case apply auto using T_UnitI T.cases sorry
 next
   case (Let y e1 e2)
   from Let(3) obtain τ1 where P: "(x, τ')#Γ ⊢ e1 : τ1 ∧ (y, τ1)#(x, τ')#Γ ⊢ e2 : τ" using T.cases by blast
@@ -183,7 +177,7 @@ next
   qed
 qed
 
-theorem preservation: "⟦ [] ⊢ e : τ ; Step e e' ⟧ ⟹ [] ⊢ e' : τ"
+(*theorem preservation: "⟦ [] ⊢ e : τ ; Step e e' ⟧ ⟹ [] ⊢ e' : τ"
 proof (induction "[] :: Γ" e τ arbitrary: e' rule: T.induct)
 case T_UnitI
   then show ?case using Step.cases by blast
