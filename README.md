@@ -1,8 +1,8 @@
 # Isabelle proving project - Semantics of functional programming languages
 
-In this project I want to start with a simply typed lambda calculus, prove type soundness and then extend it step by step until I am at the [latest version of System F](https://repository.brynmawr.edu/cgi/viewcontent.cgi?article=1014&context=compsci_pubs) used in GHC.
+![Build](https://github.com/jvanbruegge/isabelle-lambda-calculus/workflows/Build/badge.svg)
 
-I am using [ott](https://github.com/ott-lang/ott) to generate Isabelle code for the definitions of the systems
+In this project I want to start with a simply typed lambda calculus, prove type soundness and then extend it step by step until I am at the [latest version of System F](https://repository.brynmawr.edu/cgi/viewcontent.cgi?article=1014&context=compsci_pubs) used in GHC.
 
 ## Roadmap
 
@@ -14,6 +14,7 @@ I am using [ott](https://github.com/ott-lang/ott) to generate Isabelle code for 
     -   [x] Extend definition
     -   [x] Prove Progress
     -   [x] Prove Preservation
+-   [x] Use the Nominal2 framework to reason about alpha-equated terms
 -   [ ] Add datatypes and `case` expressions
     -   [ ] Extend definition
     -   [ ] Prove Progress
