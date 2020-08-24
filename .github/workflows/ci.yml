@@ -1,0 +1,35 @@
+name: Build
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Setup buildx
+        uses: crazy-max/ghaction-docker-buildx@v3
+
+      - name: Cache docker layers
+        uses: actions/cache@v1
+        with:
+          path: /tmp/docker-cache
+          key: docker-cache-${{ hashFiles('Dockerfile') }}-1
+          restore-keys: |
+            docker-cache-
+
+      - name: Build Nominal Isabelle
+        run: |
+            docker buildx build \
+                --cache-from "type=local,src=/tmp/docker-cache" \
+                --cache-to "type=local,dest=/tmp/docker-cache,mode=max" \
+                --output "type=docker" \
+                --tag isabelle_nominal:latest .
+
+      - name: Run theories
+        run: docker run isabelle_nominal build -d . Lambda
