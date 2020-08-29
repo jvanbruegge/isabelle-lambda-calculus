@@ -235,7 +235,6 @@ next
   from \<open>Let x e1 e2 \<longrightarrow> e'\<close> show ?case
   proof cases
     case (ST_SubstI y e)
-
     then show ?thesis
     proof (cases "atom x = atom y")
       case True
@@ -253,19 +252,75 @@ next
   qed
 qed
 
+definition beta_nf :: "term \<Rightarrow> bool" where
+  "beta_nf e \<equiv> \<nexists>e'. Step e e'"
+
 definition stuck :: "term \<Rightarrow> bool" where
-  "stuck e \<equiv> \<not>(is_v_of_e e \<or> (\<exists>e'. Step e e'))"
+  "stuck e \<equiv> \<not>is_v_of_e e \<and> beta_nf e"
 
 inductive Steps :: "term \<Rightarrow> term \<Rightarrow> bool" (infix "\<longrightarrow>*" 70) where
   refl: "Steps e e"
 | trans: "\<lbrakk> Steps e1 e2 ; Step e2 e3 \<rbrakk> \<Longrightarrow> Steps e1 e3"
 
 lemma multi_preservation: "\<lbrakk> e \<longrightarrow>* e' ; [] \<turnstile> e : \<tau> \<rbrakk> \<Longrightarrow> [] \<turnstile> e' : \<tau>"
-  apply (induction e e' rule: Steps.induct)
-  using preservation by blast+
+  by (induction e e' rule: Steps.induct) (auto simp: preservation)
 
 corollary soundness: "\<lbrakk> [] \<turnstile> e : \<tau> ; e \<longrightarrow>* e' \<rbrakk> \<Longrightarrow> \<not>(stuck e')"
-  unfolding stuck_def
+  unfolding stuck_def beta_nf_def
   using progress multi_preservation by blast
+
+lemma lam_equal: "Lam x \<tau> e = e2 \<Longrightarrow> \<exists>y e'. e2 = Lam y \<tau> e'"
+  by (nominal_induct e2 avoiding: x rule: term.strong_induct) auto
+lemma let_equal: "Let x e1 e2 = e \<Longrightarrow> \<exists>y e1' e2'. e = Let y e1' e2'"
+  by (nominal_induct e2 avoiding: x rule: term.strong_induct) auto
+
+lemma beta_nf_var[simp]: "beta_nf (Var x)" using beta_nf_def Step.cases by fastforce
+lemma beta_nf_lam[simp]: "beta_nf (Lam x \<tau> e)" using beta_nf_def Step.cases by fastforce
+lemma beta_nf_unit[simp]: "beta_nf Unit" using beta_nf_def Step.cases by fastforce
+lemma beta_nf_value[simp]: "is_v_of_e e \<Longrightarrow> beta_nf e"
+  by (nominal_induct e rule: term.strong_induct) auto
+
+lemma beta_same[simp]: "\<lbrakk> e1 \<longrightarrow>* e1' ; beta_nf e1 \<rbrakk> \<Longrightarrow> e1 = e1'"
+  by (induction e1 e1' rule: Steps.induct) (auto simp: beta_nf_def)
+
+lemma subst_term_perm: "atom x' \<sharp> (x, e) \<Longrightarrow> subst_term v x e = subst_term v x' ((x \<leftrightarrow> x') \<bullet> e)"
+  apply (nominal_induct e avoiding: x x' v rule: term.strong_induct)
+      apply (auto simp: fresh_Pair fresh_at_base(2) flip_fresh_fresh)
+  by (smt flip_at_base_simps(3) flip_commute flip_eqvt flip_fresh_fresh minus_flip permute_eqvt permute_eqvt subst_term.eqvt uminus_eqvt)
+
+lemma step_deterministic: "\<lbrakk> Step e e1 ; Step e e2 \<rbrakk> \<Longrightarrow> e1 = e2"
+proof (induction e e1 arbitrary: e2 rule: Step.induct)
+  case (ST_BetaI v x \<tau> e)
+  from \<open>App (\<lambda> x : \<tau> . e) v \<longrightarrow> e2\<close> show ?case
+    apply cases
+    apply (smt Abs1_eq_iff(3) flip_commute fresh_Pair fresh_at_base(2) subst_term_perm)
+    using beta_nf_def beta_nf_lam apply blast
+    using ST_BetaI.hyps beta_nf_def beta_nf_value by blast
+next
+  case (ST_SubstI v x e)
+  from \<open>Let x v e \<longrightarrow> e2\<close> show ?case
+    apply cases
+      apply (smt Abs1_eq_iff(3) flip_commute fresh_Pair fresh_at_base(2) subst_term_perm)
+  using ST_SubstI.hyps beta_nf_def beta_nf_value by blast
+next
+  case (ST_AppI e1' e2' e)
+  from \<open>App e1' e \<longrightarrow> e2\<close> show ?case
+    apply (cases)
+    using ST_AppI beta_nf_def beta_nf_lam beta_nf_value by blast+
+next
+  case (ST_App2I v e1' e2')
+  from \<open>App v e1' \<longrightarrow> e2\<close> show ?case
+    apply (cases)
+    using ST_App2I beta_nf_def beta_nf_lam beta_nf_value by blast+
+next
+  case (ST_LetI e1' e2' x e)
+  from \<open>Let x e1' e \<longrightarrow> e2\<close> show ?case
+    apply (cases)
+    using ST_LetI.hyps beta_nf_def beta_nf_value apply blast
+    using ST_LetI.IH term.eq_iff(5) by blast
+qed
+
+lemma beta_equivalence: "\<lbrakk> e1 \<longrightarrow>* e1' ; e2 \<longrightarrow>* e2' ; e1 = e2 ; beta_nf e1' ; beta_nf e2' \<rbrakk> \<Longrightarrow> e1' = e2'"
+  sorry
 
 end
