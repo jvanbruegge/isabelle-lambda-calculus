@@ -320,7 +320,61 @@ next
     using ST_LetI.IH term.eq_iff(5) by blast
 qed
 
+inductive Steps_aux :: "term \<Rightarrow> term \<Rightarrow> bool"  where
+  refl: "Steps_aux e e"
+| trans: "\<lbrakk> Step e1 e2 ; Steps_aux e2 e3 \<rbrakk> \<Longrightarrow> Steps_aux e1 e3"
+
+lemma Steps_aux_concat: "\<lbrakk> Steps_aux e1 e2 ; Steps_aux e2 e3 \<rbrakk> \<Longrightarrow> Steps_aux e1 e3"
+  apply (induction e1 e2 arbitrary: e3 rule: Steps_aux.induct)
+  using Steps_aux.simps by blast+
+
+lemma Steps_concat: "\<lbrakk> e2 \<longrightarrow>* e3 ; e1 \<longrightarrow>* e2 \<rbrakk> \<Longrightarrow> e1 \<longrightarrow>* e3"
+  apply (induction e2 e3 arbitrary: e1 rule: Steps.induct)
+  using Steps.simps by blast+
+
+lemma Steps_Steps_aux_equivalent: "a \<longrightarrow>* b \<longleftrightarrow> Steps_aux a b"
+proof
+  assume "a \<longrightarrow>* b"
+  then show "Steps_aux a b"
+  proof (induction a b rule: Steps.induct)
+    case (refl e)
+    then show ?case using Steps_aux.refl .
+  next
+    case (trans e1 e2 e3)
+    then have "Steps_aux e2 e3" using Steps_aux.simps by blast
+    then show ?case using trans(3) Steps_aux_concat by blast
+  qed
+next
+  assume "Steps_aux a b"
+  then show "a \<longrightarrow>* b"
+  proof (induction a b rule: Steps_aux.induct)
+    case (refl e)
+    then show ?case using Steps.refl .
+  next
+    case (trans e1 e2 e3)
+    then have "e1 \<longrightarrow>* e2" using Steps.simps by blast
+    then show ?case using trans(3) Steps_concat by blast
+  qed
+qed
+
+lemma Steps_fwd_induct[consumes 1, case_names refl trans]:
+  assumes "a \<longrightarrow>* b"
+    and "\<And>x. P x x" "\<And>x y z. y \<longrightarrow>* z \<Longrightarrow> P y z \<Longrightarrow> Step x y \<Longrightarrow> P x z"
+  shows "P a b"
+proof -
+  from assms(1) have 1: "Steps_aux a b" using Steps_Steps_aux_equivalent by simp
+  show ?thesis using Steps_aux.induct[OF 1]
+    by (simp add: \<open>\<And>P. \<lbrakk>\<And>e. P e e; \<And>e1 e2 e3. \<lbrakk>e1 \<longrightarrow> e2; Steps_aux e2 e3; P e2 e3\<rbrakk> \<Longrightarrow> P e1 e3\<rbrakk> \<Longrightarrow> P a b\<close> Steps_Steps_aux_equivalent assms(2) assms(3)) 
+qed
+
 lemma beta_equivalence: "\<lbrakk> e1 \<longrightarrow>* e1' ; e2 \<longrightarrow>* e2' ; e1 = e2 ; beta_nf e1' ; beta_nf e2' \<rbrakk> \<Longrightarrow> e1' = e2'"
-  sorry
+proof (induction e1 e1' arbitrary: e2 e2' rule: Steps_fwd_induct)
+case (refl x)
+  then show ?case by simp
+next
+  case (trans x y z)
+  then show ?case
+    by (metis Steps_Steps_aux_equivalent Steps_aux.simps beta_same step_deterministic)
+qed
 
 end
