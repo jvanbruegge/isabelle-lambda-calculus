@@ -235,7 +235,6 @@ next
   from \<open>Let x e1 e2 \<longrightarrow> e'\<close> show ?case
   proof cases
     case (ST_SubstI y e)
-
     then show ?thesis
     proof (cases "atom x = atom y")
       case True
@@ -253,19 +252,129 @@ next
   qed
 qed
 
+definition beta_nf :: "term \<Rightarrow> bool" where
+  "beta_nf e \<equiv> \<nexists>e'. Step e e'"
+
 definition stuck :: "term \<Rightarrow> bool" where
-  "stuck e \<equiv> \<not>(is_v_of_e e \<or> (\<exists>e'. Step e e'))"
+  "stuck e \<equiv> \<not>is_v_of_e e \<and> beta_nf e"
 
 inductive Steps :: "term \<Rightarrow> term \<Rightarrow> bool" (infix "\<longrightarrow>*" 70) where
   refl: "Steps e e"
 | trans: "\<lbrakk> Steps e1 e2 ; Step e2 e3 \<rbrakk> \<Longrightarrow> Steps e1 e3"
 
 lemma multi_preservation: "\<lbrakk> e \<longrightarrow>* e' ; [] \<turnstile> e : \<tau> \<rbrakk> \<Longrightarrow> [] \<turnstile> e' : \<tau>"
-  apply (induction e e' rule: Steps.induct)
-  using preservation by blast+
+  by (induction e e' rule: Steps.induct) (auto simp: preservation)
 
 corollary soundness: "\<lbrakk> [] \<turnstile> e : \<tau> ; e \<longrightarrow>* e' \<rbrakk> \<Longrightarrow> \<not>(stuck e')"
-  unfolding stuck_def
+  unfolding stuck_def beta_nf_def
   using progress multi_preservation by blast
+
+lemma lam_equal: "Lam x \<tau> e = e2 \<Longrightarrow> \<exists>y e'. e2 = Lam y \<tau> e'"
+  by (nominal_induct e2 avoiding: x rule: term.strong_induct) auto
+lemma let_equal: "Let x e1 e2 = e \<Longrightarrow> \<exists>y e1' e2'. e = Let y e1' e2'"
+  by (nominal_induct e2 avoiding: x rule: term.strong_induct) auto
+
+lemma beta_nf_var[simp]: "beta_nf (Var x)" using beta_nf_def Step.cases by fastforce
+lemma beta_nf_lam[simp]: "beta_nf (Lam x \<tau> e)" using beta_nf_def Step.cases by fastforce
+lemma beta_nf_unit[simp]: "beta_nf Unit" using beta_nf_def Step.cases by fastforce
+lemma beta_nf_value[simp]: "is_v_of_e e \<Longrightarrow> beta_nf e"
+  by (nominal_induct e rule: term.strong_induct) auto
+
+lemma beta_same[simp]: "\<lbrakk> e1 \<longrightarrow>* e1' ; beta_nf e1 \<rbrakk> \<Longrightarrow> e1 = e1'"
+  by (induction e1 e1' rule: Steps.induct) (auto simp: beta_nf_def)
+
+lemma subst_term_perm: "atom x' \<sharp> (x, e) \<Longrightarrow> subst_term v x e = subst_term v x' ((x \<leftrightarrow> x') \<bullet> e)"
+  apply (nominal_induct e avoiding: x x' v rule: term.strong_induct)
+      apply (auto simp: fresh_Pair fresh_at_base(2) flip_fresh_fresh)
+  by (smt flip_at_base_simps(3) flip_commute flip_eqvt flip_fresh_fresh minus_flip permute_eqvt permute_eqvt subst_term.eqvt uminus_eqvt)
+
+lemma step_deterministic: "\<lbrakk> Step e e1 ; Step e e2 \<rbrakk> \<Longrightarrow> e1 = e2"
+proof (induction e e1 arbitrary: e2 rule: Step.induct)
+  case (ST_BetaI v x \<tau> e)
+  from \<open>App (\<lambda> x : \<tau> . e) v \<longrightarrow> e2\<close> show ?case
+    apply cases
+    apply (smt Abs1_eq_iff(3) flip_commute fresh_Pair fresh_at_base(2) subst_term_perm)
+    using beta_nf_def beta_nf_lam apply blast
+    using ST_BetaI.hyps beta_nf_def beta_nf_value by blast
+next
+  case (ST_SubstI v x e)
+  from \<open>Let x v e \<longrightarrow> e2\<close> show ?case
+    apply cases
+      apply (smt Abs1_eq_iff(3) flip_commute fresh_Pair fresh_at_base(2) subst_term_perm)
+  using ST_SubstI.hyps beta_nf_def beta_nf_value by blast
+next
+  case (ST_AppI e1' e2' e)
+  from \<open>App e1' e \<longrightarrow> e2\<close> show ?case
+    apply (cases)
+    using ST_AppI beta_nf_def beta_nf_lam beta_nf_value by blast+
+next
+  case (ST_App2I v e1' e2')
+  from \<open>App v e1' \<longrightarrow> e2\<close> show ?case
+    apply (cases)
+    using ST_App2I beta_nf_def beta_nf_lam beta_nf_value by blast+
+next
+  case (ST_LetI e1' e2' x e)
+  from \<open>Let x e1' e \<longrightarrow> e2\<close> show ?case
+    apply (cases)
+    using ST_LetI.hyps beta_nf_def beta_nf_value apply blast
+    using ST_LetI.IH term.eq_iff(5) by blast
+qed
+
+inductive Steps_aux :: "term \<Rightarrow> term \<Rightarrow> bool"  where
+  refl: "Steps_aux e e"
+| trans: "\<lbrakk> Step e1 e2 ; Steps_aux e2 e3 \<rbrakk> \<Longrightarrow> Steps_aux e1 e3"
+
+lemma Steps_aux_concat: "\<lbrakk> Steps_aux e1 e2 ; Steps_aux e2 e3 \<rbrakk> \<Longrightarrow> Steps_aux e1 e3"
+  apply (induction e1 e2 arbitrary: e3 rule: Steps_aux.induct)
+  using Steps_aux.simps by blast+
+
+lemma Steps_concat: "\<lbrakk> e2 \<longrightarrow>* e3 ; e1 \<longrightarrow>* e2 \<rbrakk> \<Longrightarrow> e1 \<longrightarrow>* e3"
+  apply (induction e2 e3 arbitrary: e1 rule: Steps.induct)
+  using Steps.simps by blast+
+
+lemma Steps_Steps_aux_equivalent: "a \<longrightarrow>* b \<longleftrightarrow> Steps_aux a b"
+proof
+  assume "a \<longrightarrow>* b"
+  then show "Steps_aux a b"
+  proof (induction a b rule: Steps.induct)
+    case (refl e)
+    then show ?case using Steps_aux.refl .
+  next
+    case (trans e1 e2 e3)
+    then have "Steps_aux e2 e3" using Steps_aux.simps by blast
+    then show ?case using trans(3) Steps_aux_concat by blast
+  qed
+next
+  assume "Steps_aux a b"
+  then show "a \<longrightarrow>* b"
+  proof (induction a b rule: Steps_aux.induct)
+    case (refl e)
+    then show ?case using Steps.refl .
+  next
+    case (trans e1 e2 e3)
+    then have "e1 \<longrightarrow>* e2" using Steps.simps by blast
+    then show ?case using trans(3) Steps_concat by blast
+  qed
+qed
+
+lemma Steps_fwd_induct[consumes 1, case_names refl trans]:
+  assumes "a \<longrightarrow>* b"
+    and "\<And>x. P x x" "\<And>x y z. y \<longrightarrow>* z \<Longrightarrow> P y z \<Longrightarrow> Step x y \<Longrightarrow> P x z"
+  shows "P a b"
+proof -
+  from assms(1) have 1: "Steps_aux a b" using Steps_Steps_aux_equivalent by simp
+  show ?thesis using Steps_aux.induct[OF 1]
+    by (simp add: \<open>\<And>P. \<lbrakk>\<And>e. P e e; \<And>e1 e2 e3. \<lbrakk>e1 \<longrightarrow> e2; Steps_aux e2 e3; P e2 e3\<rbrakk> \<Longrightarrow> P e1 e3\<rbrakk> \<Longrightarrow> P a b\<close> Steps_Steps_aux_equivalent assms(2) assms(3)) 
+qed
+
+lemma beta_equivalence: "\<lbrakk> e1 \<longrightarrow>* e1' ; e2 \<longrightarrow>* e2' ; e1 = e2 ; beta_nf e1' ; beta_nf e2' \<rbrakk> \<Longrightarrow> e1' = e2'"
+proof (induction e1 e1' arbitrary: e2 e2' rule: Steps_fwd_induct)
+case (refl x)
+  then show ?case by simp
+next
+  case (trans x y z)
+  then show ?case
+    by (metis Steps_Steps_aux_equivalent Steps_aux.simps beta_same step_deterministic)
+qed
 
 end
