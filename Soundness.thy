@@ -320,40 +320,43 @@ next
     using ST_LetI.IH term.eq_iff(5) by blast
 qed
 
-inductive Steps_aux :: "term \<Rightarrow> term \<Rightarrow> bool"  where
-  refl: "Steps_aux e e"
-| trans: "\<lbrakk> Step e1 e2 ; Steps_aux e2 e3 \<rbrakk> \<Longrightarrow> Steps_aux e1 e3"
+fun path :: "term \<Rightarrow> term list \<Rightarrow> term \<Rightarrow> bool" where
+  "path a [] b \<longleftrightarrow> a = b \<or> Step a b"
+| "path a (x#xs) b \<longleftrightarrow> Step a x \<and> path x xs b"
 
-lemma Steps_aux_concat: "\<lbrakk> Steps_aux e1 e2 ; Steps_aux e2 e3 \<rbrakk> \<Longrightarrow> Steps_aux e1 e3"
-  apply (induction e1 e2 arbitrary: e3 rule: Steps_aux.induct)
-  using Steps_aux.simps by blast+
+lemma path_snoc: "\<lbrakk> path a xs b ; Step b c \<rbrakk> \<Longrightarrow> path a (xs@[b]) c \<or> path a xs c"
+  by (induction a xs b arbitrary: c rule: path.induct) auto
 
 lemma Steps_concat: "\<lbrakk> e2 \<longrightarrow>* e3 ; e1 \<longrightarrow>* e2 \<rbrakk> \<Longrightarrow> e1 \<longrightarrow>* e3"
   apply (induction e2 e3 arbitrary: e1 rule: Steps.induct)
   using Steps.simps by blast+
 
-lemma Steps_Steps_aux_equivalent: "a \<longrightarrow>* b \<longleftrightarrow> Steps_aux a b"
+lemma Steps_path: "a \<longrightarrow>* b \<longleftrightarrow> (\<exists>p. path a p b)"
 proof
   assume "a \<longrightarrow>* b"
-  then show "Steps_aux a b"
+  then show "\<exists>p. path a p b"
   proof (induction a b rule: Steps.induct)
     case (refl e)
-    then show ?case using Steps_aux.refl .
+    then have "path e [] e" by simp
+    then show ?case by blast
   next
     case (trans e1 e2 e3)
-    then have "Steps_aux e2 e3" using Steps_aux.simps by blast
-    then show ?case using trans(3) Steps_aux_concat by blast
+    then obtain xs where "path e1 xs e2" by blast
+    then have "path e1 (xs@[e2]) e3 \<or> path e1 xs e3" using trans(2) path_snoc by simp
+    then show ?case by blast
   qed
 next
-  assume "Steps_aux a b"
+  assume "\<exists>p. path a p b"
+  then obtain p where "path a p b" by blast
   then show "a \<longrightarrow>* b"
-  proof (induction a b rule: Steps_aux.induct)
-    case (refl e)
-    then show ?case using Steps.refl .
+  proof (induction a p b rule: path.induct)
+    case (1 a b)
+    then show ?case using Steps.intros by auto
   next
-    case (trans e1 e2 e3)
-    then have "e1 \<longrightarrow>* e2" using Steps.simps by blast
-    then show ?case using trans(3) Steps_concat by blast
+    case (2 a x xs b)
+    then have a: "a \<longrightarrow>* x" using Steps.intros by auto
+    from 2 have b: "x \<longrightarrow>* b" by simp
+    show ?case using Steps_concat[OF b a] .
   qed
 qed
 
@@ -362,9 +365,27 @@ lemma Steps_fwd_induct[consumes 1, case_names refl trans]:
     and "\<And>x. P x x" "\<And>x y z. y \<longrightarrow>* z \<Longrightarrow> P y z \<Longrightarrow> Step x y \<Longrightarrow> P x z"
   shows "P a b"
 proof -
-  from assms(1) have 1: "Steps_aux a b" using Steps_Steps_aux_equivalent by simp
-  show ?thesis using Steps_aux.induct[OF 1]
-    by (simp add: \<open>\<And>P. \<lbrakk>\<And>e. P e e; \<And>e1 e2 e3. \<lbrakk>e1 \<longrightarrow> e2; Steps_aux e2 e3; P e2 e3\<rbrakk> \<Longrightarrow> P e1 e3\<rbrakk> \<Longrightarrow> P a b\<close> Steps_Steps_aux_equivalent assms(2) assms(3)) 
+  from assms(1) obtain p where P: "path a p b" using Steps_path by blast
+  then show ?thesis
+  proof (induction a p b rule: path.induct)
+    case (1 a b)
+    then show ?case
+    proof (cases "a = b")
+      case True
+      then show ?thesis using assms(2) by simp
+    next
+      case False
+      then have 1: "Step a b" using 1 by simp
+      have 2: "b \<longrightarrow>* b" using Steps.refl by simp
+      show ?thesis using assms(3)[OF 2 assms(2) 1] .
+    qed
+  next
+    case (2 a x xs b)
+    then have 1: "P x b" by simp
+    from 2 have 3: "x \<longrightarrow>* b" using Steps_path by auto
+    from 2 have 4: "Step a x" by simp
+    show ?case using assms(3)[OF 3 1 4] .
+  qed
 qed
 
 lemma beta_equivalence: "\<lbrakk> e1 \<longrightarrow>* e1' ; e2 \<longrightarrow>* e2' ; e1 = e2 ; beta_nf e1' ; beta_nf e2' \<rbrakk> \<Longrightarrow> e1' = e2'"
@@ -373,8 +394,7 @@ case (refl x)
   then show ?case by simp
 next
   case (trans x y z)
-  then show ?case
-    by (metis Steps_Steps_aux_equivalent Steps_aux.simps beta_same step_deterministic)
+  then show ?case by (metis Steps.simps Steps_path beta_same path.elims(2) step_deterministic)
 qed
 
 end
