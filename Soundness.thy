@@ -40,16 +40,16 @@ next
   then show ?case by (metis Diff_iff UnE fresh_at_base(2) isin.simps(2) term.fv_defs(5))
 qed
 
-lemma fresh_term[simp]: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom x \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom x \<sharp> e"
+lemma fresh_term[simp]: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom (x::var) \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom x \<sharp> e"
   apply (nominal_induct \<Gamma> e \<tau> avoiding: x rule: T.strong_induct)
       apply (auto simp: fresh_Cons)
   using fresh_ineq_at_base fresh_not_isin apply force
   done
 
-lemma fun_ty_lam: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau>1 \<rightarrow> \<tau>2 ; is_v_of_e e \<rbrakk> \<Longrightarrow> \<exists>x e'. e = (\<lambda>x:\<tau>1. e')"
+lemma fun_ty_lam: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau>1 \<rightarrow> \<tau>2 ; is_value e \<rbrakk> \<Longrightarrow> \<exists>x e'. e = (\<lambda>x:\<tau>1. e')"
   by (nominal_induct \<Gamma> e "\<tau>1 \<rightarrow> \<tau>2" rule: T.strong_induct) auto
 
-theorem progress: "[] \<turnstile> e : \<tau> \<Longrightarrow> is_v_of_e e \<or> (\<exists>e'. Step e e')"
+theorem progress: "[] \<turnstile> e : \<tau> \<Longrightarrow> is_value e \<or> (\<exists>e'. Step e e')"
 proof (induction "[] :: \<Gamma>" e \<tau> rule: T.induct)
   case T_UnitI
   then show ?case by simp
@@ -66,16 +66,16 @@ next
 
   from IH1 show ?case
   proof (elim disjE)
-    assume "is_v_of_e e1"
+    assume "is_value e1"
     from IH2 show ?thesis
     proof (elim disjE)
-      assume "is_v_of_e e2"
-      from \<open>is_v_of_e e1\<close> T_AppI(1) have "\<exists>x e. e1 = (\<lambda>x:\<tau>1. e)" by (simp add: fun_ty_lam)
-      then have "\<exists>e'. Step (App e1 e2) e'" using \<open>is_v_of_e e2\<close> ST_BetaI by blast
+      assume "is_value e2"
+      from \<open>is_value e1\<close> T_AppI(1) have "\<exists>x e. e1 = (\<lambda>x:\<tau>1. e)" by (simp add: fun_ty_lam)
+      then have "\<exists>e'. Step (App e1 e2) e'" using \<open>is_value e2\<close> ST_BetaI by blast
       then show ?thesis by simp
     next
       assume "\<exists>e2'. Step e2 e2'"
-      then show ?thesis using ST_App2I \<open>is_v_of_e e1\<close> by blast
+      then show ?thesis using ST_App2I \<open>is_value e1\<close> by blast
     qed
   next
     assume "\<exists>e1'. Step e1 e1'"
@@ -88,7 +88,7 @@ next
   then show ?case using ST_SubstI ST_LetI by blast
 qed
 
-lemma swap_term: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom y \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> ((x \<leftrightarrow> y) \<bullet> \<Gamma>) \<turnstile> (x \<leftrightarrow> y) \<bullet> e : \<tau>"
+lemma swap_term: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom (y::var) \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> ((x \<leftrightarrow> y) \<bullet> \<Gamma>) \<turnstile> (x \<leftrightarrow> y) \<bullet> e : \<tau>"
 proof (nominal_induct \<Gamma> e \<tau> avoiding: x y rule: T.strong_induct)
   case (T_UnitI \<Gamma>)
   then show ?case by (simp add: T.T_UnitI)
@@ -171,7 +171,7 @@ proof (nominal_induct e avoiding: \<Gamma> \<tau> v x \<tau>' rule: term.strong_
   next
     case False
     then show ?thesis using Var context_invariance
-      by (metis (no_types, lifting) Rep_name_inverse atom_name_def subst_term.simps(1) isin.simps(2) singletonD supp_at_base term.fv_defs(1))
+      by (metis (no_types, lifting) Rep_var_inverse atom_var_def subst_term.simps(1) isin.simps(2) singletonD supp_at_base term.fv_defs(1))
   qed
 next
   case (Lam y \<sigma> e)
@@ -216,7 +216,7 @@ next
   from \<open>App e1 e2 \<longrightarrow> e'\<close> show ?case
   proof cases
     case (ST_BetaI x \<tau> e)
-    then have "\<tau> = \<tau>1" using T_AppI.hyps(1) fun_ty_lam is_v_of_e.simps(2) term.eq_iff(2) by blast
+    then have "\<tau> = \<tau>1" using T_AppI.hyps(1) fun_ty_lam is_value.simps(2) term.eq_iff(2) by blast
     then have 1: "[] \<turnstile> e2 : \<tau>" using T_AppI(3) by simp
 
     have "[] \<turnstile> \<lambda> x : \<tau> . e : \<tau>1 \<rightarrow> \<tau>2" using T_AppI ST_BetaI by blast
@@ -256,7 +256,7 @@ definition beta_nf :: "term \<Rightarrow> bool" where
   "beta_nf e \<equiv> \<nexists>e'. Step e e'"
 
 definition stuck :: "term \<Rightarrow> bool" where
-  "stuck e \<equiv> \<not>is_v_of_e e \<and> beta_nf e"
+  "stuck e \<equiv> \<not>is_value e \<and> beta_nf e"
 
 inductive Steps :: "term \<Rightarrow> term \<Rightarrow> bool" (infix "\<longrightarrow>*" 70) where
   refl: "Steps e e"
@@ -277,16 +277,31 @@ lemma let_equal: "Let x e1 e2 = e \<Longrightarrow> \<exists>y e1' e2'. e = Let 
 lemma beta_nf_var[simp]: "beta_nf (Var x)" using beta_nf_def Step.cases by fastforce
 lemma beta_nf_lam[simp]: "beta_nf (Lam x \<tau> e)" using beta_nf_def Step.cases by fastforce
 lemma beta_nf_unit[simp]: "beta_nf Unit" using beta_nf_def Step.cases by fastforce
-lemma beta_nf_value[simp]: "is_v_of_e e \<Longrightarrow> beta_nf e"
+lemma beta_nf_value[simp]: "is_value e \<Longrightarrow> beta_nf e"
   by (nominal_induct e rule: term.strong_induct) auto
 
 lemma beta_same[simp]: "\<lbrakk> e1 \<longrightarrow>* e1' ; beta_nf e1 \<rbrakk> \<Longrightarrow> e1 = e1'"
   by (induction e1 e1' rule: Steps.induct) (auto simp: beta_nf_def)
 
 lemma subst_term_perm: "atom x' \<sharp> (x, e) \<Longrightarrow> subst_term v x e = subst_term v x' ((x \<leftrightarrow> x') \<bullet> e)"
-  apply (nominal_induct e avoiding: x x' v rule: term.strong_induct)
-      apply (auto simp: fresh_Pair fresh_at_base(2) flip_fresh_fresh)
-  by (smt flip_at_base_simps(3) flip_commute flip_eqvt flip_fresh_fresh minus_flip permute_eqvt permute_eqvt subst_term.eqvt uminus_eqvt)
+proof (nominal_induct e avoiding: x x' v rule: term.strong_induct)
+case (Var y)
+  then show ?case
+    by (metis flip_at_base_simps(3) flip_at_simps(1) fresh_PairD(2) fresh_at_base(2) subst_term.simps(1) term.fresh(1) term.perm_simps(1))
+next
+  case (Lam y \<tau> e)
+  then show ?case by (simp add: Lam.hyps(4) flip_fresh_fresh fresh_Pair fresh_at_base(2))
+next
+  case (App e1 e2)
+  then show ?case by (simp add: fresh_Pair)
+next
+  case Unit
+  then show ?case by simp
+next
+  case (Let y e1 e2)
+  then show ?case
+    by (smt flip_at_base_simps(3) fresh_Pair fresh_at_base(2) list.set(1) list.simps(15) singletonD subst_term.simps(5) term.fresh(5) term.perm_simps(5))
+qed
 
 lemma step_deterministic: "\<lbrakk> Step e e1 ; Step e e2 \<rbrakk> \<Longrightarrow> e1 = e2"
 proof (induction e e1 arbitrary: e2 rule: Step.induct)
