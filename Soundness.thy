@@ -18,8 +18,14 @@ next
 next
   case (T_LetI x \<Gamma> e1 \<tau>1 e2 \<tau>2)
   then have 1: "atom x \<sharp> (\<Gamma>', e1)" by simp
-  from T_LetI have 2: "(x, \<tau>1) # \<Gamma>' \<turnstile> e2 : \<tau>2" by simp
+  from T_LetI have 2: "(x, \<tau>1) # \<Gamma>' \<turnstile> e2 : TyMono \<tau>2" by simp
   show ?case using T.T_LetI[OF 1 2] using T_LetI by simp
+next
+  case (T_InsI \<Gamma> e \<sigma>' \<sigma>)
+  then show ?case using T.simps by blast
+next
+  case (T_GenI \<Gamma> e \<sigma> a)
+  then show ?case using T.T_GenI fresh_Pair by simp
 qed
 
 lemma free_in_context: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom x \<in> fv_term e \<rbrakk> \<Longrightarrow> \<exists>\<tau>'. (x, \<tau>') \<in> \<Gamma>"
@@ -38,6 +44,12 @@ next
 next
   case (T_LetI x' \<Gamma> e1 \<tau>1 e2 \<tau>2)
   then show ?case by (metis Diff_iff UnE fresh_at_base(2) isin.simps(2) term.fv_defs(5))
+next
+  case (T_InsI \<Gamma> e \<sigma>' \<sigma>)
+  then show ?case by simp
+next
+  case (T_GenI \<Gamma> e \<sigma> a)
+  then show ?case by simp
 qed
 
 lemma fresh_term[simp]: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom (x::var) \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom x \<sharp> e"
@@ -46,8 +58,15 @@ lemma fresh_term[simp]: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom (x::v
   using fresh_ineq_at_base fresh_not_isin apply force
   done
 
-lemma fun_ty_lam: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau>1 \<rightarrow> \<tau>2 ; is_value e \<rbrakk> \<Longrightarrow> \<exists>x e'. e = (\<lambda>x:\<tau>1. e')"
-  by (nominal_induct \<Gamma> e "\<tau>1 \<rightarrow> \<tau>2" rule: T.strong_induct) auto
+lemma fun_ty_lam: "\<lbrakk> \<Gamma> \<turnstile> e : TyMono (\<tau>1 \<rightarrow> \<tau>2) ; is_value e \<rbrakk> \<Longrightarrow> \<exists>x e'. e = (\<lambda>x:\<tau>1. e')"
+proof (nominal_induct \<Gamma> e "TyMono (\<tau>1 \<rightarrow> \<tau>2)" rule: T.strong_induct)
+  case (T_InsI \<Gamma> e \<sigma>')
+  then show ?case
+    apply cases
+          apply auto
+    
+qed auto
+
 
 theorem progress: "[] \<turnstile> e : \<tau> \<Longrightarrow> is_value e \<or> (\<exists>e'. Step e e')"
 proof (induction "[] :: \<Gamma>" e \<tau> rule: T.induct)

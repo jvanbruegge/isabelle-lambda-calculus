@@ -90,6 +90,9 @@ nominal_termination (eqvt) by lexicographic_order
 lemma fresh_subst_term: "\<lbrakk> atom z \<sharp> s ; z = y \<or> atom z \<sharp> t \<rbrakk> \<Longrightarrow> atom z \<sharp> subst_term s y t"
   by (nominal_induct t avoiding: z y s rule: term.strong_induct) auto
 
+lemma fresh_not_isin: "atom x \<sharp> \<Gamma> \<Longrightarrow> \<nexists>t'. isin (x, t') \<Gamma>"
+  by (induction \<Gamma>) (auto simp: fresh_Pair fresh_Cons fresh_at_base(2))
+
 nominal_function subst_type :: "\<tau> \<Rightarrow> tyvar \<Rightarrow> \<tau> \<Rightarrow> \<tau>" where
   "subst_type t a TyUnit = TyUnit"
 | "subst_type t a (TyArrow \<tau>1 \<tau>2) = TyArrow (subst_type t a \<tau>1) (subst_type t a \<tau>2)"
@@ -125,15 +128,18 @@ next
 qed (auto simp: eqvt_def subst_forall_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
-lemma fresh_subst_forall_aux: "atom a \<sharp> \<tau> \<Longrightarrow> atom a \<sharp> subst_forall (a, \<tau>) \<sigma>"
+lemma fresh_subst_forall: "atom a \<sharp> \<tau> \<Longrightarrow> atom a \<sharp> subst_forall (a, \<tau>) \<sigma>"
   by (induction "(a, \<tau>)" \<sigma> rule: subst_forall.induct) (auto simp: fresh_subst_type)
-lemma fresh_subst_forall_aux_2: "\<lbrakk> atom a \<sharp> \<tau> ; atom a \<sharp> \<sigma> ; atom (a::tyvar) \<sharp> b \<rbrakk> \<Longrightarrow> atom a \<sharp> subst_forall (b, \<tau>) \<sigma>"
+lemma fresh_subst_forall_2: "\<lbrakk> atom a \<sharp> \<tau> ; atom a \<sharp> \<sigma> ; atom (a::tyvar) \<sharp> b \<rbrakk> \<Longrightarrow> atom a \<sharp> subst_forall (b, \<tau>) \<sigma>"
   by (induction "(b, \<tau>)" \<sigma> rule: subst_forall.induct) (auto simp: fresh_subst_type_2)
 
-nominal_function subst_all_types :: "\<tau> list \<Rightarrow> \<sigma> \<Rightarrow> \<sigma>" where
+nominal_function subst_all_types :: "\<tau> option list \<Rightarrow> \<sigma> \<Rightarrow> \<sigma>" where
   "subst_all_types _ (TyMono \<tau>) = TyMono \<tau>"
 | "subst_all_types [] (TyForall a \<sigma>) = TyForall a \<sigma>"
-| "atom a \<sharp> x \<Longrightarrow> subst_all_types (x#xs) (TyForall a \<sigma>) = subst_all_types xs (subst_forall (a, x) \<sigma>)"
+| "atom a \<sharp> x \<Longrightarrow> subst_all_types (x#xs) (TyForall a \<sigma>) = (case x of
+    Some t \<Rightarrow> subst_all_types xs (subst_forall (a, t) \<sigma>) |
+    None \<Rightarrow> TyForall a (subst_all_types xs \<sigma>)
+  )"
 proof goal_cases
 next
   case (3 P x)
@@ -148,27 +154,28 @@ next
   qed
 next
   case (9 a x xs \<sigma> a2 x2 xs2 \<sigma>2)
-  then show ?case
-    apply auto
-    by (smt "9"(7) Abs1_eq_iff(3) Pair_eqvt Pair_inject \<sigma>.eq_iff(2) atom_eq_iff flip_at_simps(2) flip_fresh_fresh fresh_at_base(2) fresh_subst_forall_aux fresh_subst_forall_aux_2 subst_forall.eqvt)
-qed (auto simp: eqvt_def subst_all_types_graph_aux_def)
+  then have "TyForall a \<sigma> = TyForall a2 \<sigma>2" by simp
+  then have swap: "\<sigma> = (a \<leftrightarrow> a2) \<bullet> \<sigma>2"
+    by (metis Abs1_eq_iff(3) Nominal2_Base.swap_self \<sigma>.eq_iff(2) flip_def fresh_star_zero supp_perm_eq_test)
+  show ?case
+  proof (cases x)
+    case None
+    thm \<sigma>.eq_iff
+    thm Abs1_eq_iff
+    have "TyForall a (subst_all_types_sumC (xs, \<sigma>)) = TyForall a2 (subst_all_types_sumC (xs2, \<sigma>2))" sorry
+    then show ?thesis using 9 None by auto
+  next
+    case (Some y)
+    have "subst_all_types_sumC (xs, subst_forall (a, y) \<sigma>) = subst_all_types_sumC (xs2, subst_forall (a2, y) \<sigma>2)" sorry
+    then show ?thesis using 9 Some by auto
+  qed
+qed (auto split: option.splits simp: eqvt_def subst_all_types_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
-nominal_function split_vars :: "\<sigma> \<Rightarrow> tyvar list * \<tau>" where
-  "split_vars (TyMono \<tau>) = ([], \<tau>)"
-| "split_vars (TyForall a \<sigma>) = (let (xs, \<tau>) = split_vars \<sigma> in (a#xs, \<tau>))"
-       apply (auto simp: eqvt_def split_vars_graph_aux_def)
-   apply (meson \<sigma>.strong_exhaust)
-  apply (auto split: prod.splits)
-  sorry
+nominal_function ty_leq :: "\<sigma> \<Rightarrow> \<sigma> \<Rightarrow> bool" ("_ \<sqsubseteq> _ " 50) where
+  "ty_leq \<sigma> \<sigma>' \<longleftrightarrow> (\<exists>xs. \<sigma>' = subst_all_types xs \<sigma>)"
+  by (auto simp: eqvt_def ty_leq_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
-
-definition ty_leq :: "\<sigma> \<Rightarrow> \<sigma> \<Rightarrow> bool" ("_ \<sqsubseteq> _" 50) where
-  "ty_leq \<sigma> \<sigma>' = (
-    let (as, \<tau>) = split_vars \<sigma> in
-    let (bs, \<tau>') = split_vars \<sigma>' in
-    (atom ` set bs) \<sharp>* \<sigma> \<and> (\<exists>ts. \<tau>' = subst_types (zip as ts) \<tau>)
-  )"
 
 (** definitions *)
 (* defns Jwf *)
@@ -197,15 +204,13 @@ T_UnitI: "(\<Gamma> \<turnstile> Unit : TyMono TyUnit)"
 
 | T_InsI: "\<lbrakk> \<Gamma> \<turnstile> e : \<sigma>' ; \<sigma>' \<sqsubseteq> \<sigma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> e : \<sigma>"
 
-| T_GenI: "\<lbrakk> \<Gamma> \<turnstile> e : \<sigma> ; atom (a :: tyvar) \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> e : TyForall a \<sigma>"
-
-lemma fresh_not_isin: "atom x \<sharp> \<Gamma> \<Longrightarrow> \<nexists>t'. isin (x, t') \<Gamma>"
-  by (induction \<Gamma>) (auto simp: fresh_Pair fresh_Cons fresh_at_base(2))
+| T_GenI: "\<lbrakk> \<Gamma> \<turnstile> e : \<sigma> ; atom (a :: tyvar) \<sharp> (\<Gamma>, e) \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> e : TyForall a \<sigma>"
 
 equivariance T
 nominal_inductive T avoids
   T_AbsI: x
   | T_LetI: x
+  | T_GenI: a
   by (auto simp: fresh_star_def fresh_Unit fresh_Pair)
 
 (** definitions *)
