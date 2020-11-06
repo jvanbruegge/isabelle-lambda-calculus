@@ -171,7 +171,7 @@ proof (nominal_induct e avoiding: \<Gamma> \<tau> v x \<tau>' rule: term.strong_
   next
     case False
     then show ?thesis using Var context_invariance
-      by (metis (no_types, lifting) Rep_name_inverse atom_name_def subst_term.simps(1) isin.simps(2) singletonD supp_at_base term.fv_defs(1))
+      by (metis (no_types, lifting) Rep_var_inverse atom_var_def subst_term.simps(1) isin.simps(2) singletonD supp_at_base term.fv_defs(1))
   qed
 next
   case (Lam y \<sigma> e)
@@ -286,7 +286,8 @@ lemma beta_same[simp]: "\<lbrakk> e1 \<longrightarrow>* e1' ; beta_nf e1 \<rbrak
 lemma subst_term_perm: "atom x' \<sharp> (x, e) \<Longrightarrow> subst_term v x e = subst_term v x' ((x \<leftrightarrow> x') \<bullet> e)"
   apply (nominal_induct e avoiding: x x' v rule: term.strong_induct)
       apply (auto simp: fresh_Pair fresh_at_base(2) flip_fresh_fresh)
-  by (smt flip_at_base_simps(3) flip_commute flip_eqvt flip_fresh_fresh minus_flip permute_eqvt permute_eqvt subst_term.eqvt uminus_eqvt)
+  by (smt flip_at_base_simps(3) flip_at_simps(2) flip_eqvt flip_fresh_fresh minus_flip permute_eqvt permute_eqvt subst_term.eqvt)
+  
 
 lemma step_deterministic: "\<lbrakk> Step e e1 ; Step e e2 \<rbrakk> \<Longrightarrow> e1 = e2"
 proof (induction e e1 arbitrary: e2 rule: Step.induct)
