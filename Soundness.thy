@@ -17,7 +17,7 @@ next
 next
   case (T_AbsTI a \<Gamma> e \<sigma>)
   then have 1: "BTyVar a # \<Gamma>' \<turnstile> e : \<sigma>" by simp
-  from T_AbsTI have 2: "atom a \<sharp> (e, \<sigma>, \<Gamma>')" by simp
+  from T_AbsTI have 2: "atom a \<sharp> (e, \<Gamma>')" by simp
   show ?case using T.T_AbsTI[OF 1 2] .
 qed (auto simp: T.intros supp_at_base)
 
@@ -132,7 +132,7 @@ proof (cases rule: T.cases[OF a])
   qed
 qed simp_all
 
-lemma substitution: "\<lbrakk> (x, \<tau>')#\<Gamma> \<turnstile> e : \<tau> ; [] \<turnstile> v : \<tau>' \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> subst_term v x e : \<tau>"
+lemma substitution: "\<lbrakk> BVar x \<tau>'#\<Gamma> \<turnstile> e : \<tau> ; [] \<turnstile> v : \<tau>' \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> subst_term v x e : \<tau>"
 proof (nominal_induct e avoiding: \<Gamma> \<tau> v x \<tau>' rule: term.strong_induct)
   case (Var y)
   then show ?case
@@ -147,30 +147,64 @@ proof (nominal_induct e avoiding: \<Gamma> \<tau> v x \<tau>' rule: term.strong_
   qed
 next
   case (Lam y \<sigma> e)
-  then obtain \<tau>2 where P: "(y, \<sigma>)#(x, \<tau>')#\<Gamma> \<turnstile> e : \<tau>2 \<and> \<tau> = (\<sigma> \<rightarrow> \<tau>2)" using T_Abs_Inv[OF Lam(7)] fresh_Cons fresh_Pair by blast
-  then have "(x, \<tau>')#(y, \<sigma>)#\<Gamma> \<turnstile> e : \<tau>2" using context_invariance \<open>atom y \<sharp> x\<close> by auto
+  then obtain \<tau>2 where P: "BVar y \<sigma>#BVar x \<tau>'#\<Gamma> \<turnstile> e : \<tau>2 \<and> \<tau> = (\<sigma> \<rightarrow> \<tau>2)" using T_Abs_Inv[OF Lam(7)] fresh_Cons fresh_Pair binder.fresh(1) by blast
+  then have "BVar x \<tau>'#BVar y \<sigma>#\<Gamma> \<turnstile> e : \<tau>2" using context_invariance \<open>atom y \<sharp> x\<close> by auto
   then show ?case using Lam T_AbsI P by simp
 next
   case (App e1 e2)
-  obtain \<tau>1 where P: "((x, \<tau>') # \<Gamma> \<turnstile> e1 : \<tau>1 \<rightarrow> \<tau>) \<and> ((x, \<tau>') # \<Gamma> \<turnstile> e2 : \<tau>1)" using T.cases[OF App(3)] by fastforce
+  obtain \<tau>1 where P: "(BVar x \<tau>' # \<Gamma> \<turnstile> e1 : \<tau>1 \<rightarrow> \<tau>) \<and> (BVar x \<tau>' # \<Gamma> \<turnstile> e2 : \<tau>1)" using T.cases[OF App(3)] by fastforce
   then show ?case using T_AppI App by fastforce
 next
   case Unit
   then show ?case using T.cases[OF Unit(1)] T_UnitI by auto
 next
   case (Let y e1 e2)
-  have "atom y \<sharp> e1" using Let.hyps(1) Let.hyps(4) Let.prems(1) T_Let_Inv fresh_Cons fresh_Pair fresh_term no_vars_in_ty by blast
+  have "atom y \<sharp> e1" using Let.hyps(1) Let.hyps(4) Let.hyps(5) Let.prems(1) T_Let_Inv binder.fresh(1) fresh_Cons fresh_term_var by blast
   then have "atom y \<sharp> subst_term v x e1" by (simp add: Let.hyps(3) fresh_subst_term) 
   then have 0: "atom y \<sharp> (\<Gamma>, subst_term v x e1)" using Let fresh_Pair by simp
 
-  obtain \<tau>1 where P: "(x, \<tau>')#\<Gamma> \<turnstile> e1 : \<tau>1 \<and> (y, \<tau>1)#(x, \<tau>')#\<Gamma> \<turnstile> e2 : \<tau>" using T_Let_Inv[OF Let(8)] Let fresh_Cons fresh_Pair by blast
-  then have 1: "(x, \<tau>')#(y, \<tau>1)#\<Gamma> \<turnstile> e2 : \<tau>" using context_invariance Let(4) by force
-  from P have 2: "(x, \<tau>')#\<Gamma> \<turnstile> e1 : \<tau>1" by simp
+  obtain \<tau>1 where P: "BVar x \<tau>'#\<Gamma> \<turnstile> e1 : \<tau>1 \<and> BVar y \<tau>1#BVar x \<tau>'#\<Gamma> \<turnstile> e2 : \<tau>" using T_Let_Inv[OF Let(8)] Let fresh_Cons fresh_Pair binder.fresh(1) by blast
+  then have 1: "BVar x \<tau>'#BVar y \<tau>1#\<Gamma> \<turnstile> e2 : \<tau>" using context_invariance Let(4) by force
+  from P have 2: "BVar x \<tau>'#\<Gamma> \<turnstile> e1 : \<tau>1" by simp
 
   have 3: "\<Gamma> \<turnstile> subst_term v x e1 : \<tau>1" using Let(6)[OF 2 Let(9)] .
-  have 4: "(y, \<tau>1)#\<Gamma> \<turnstile> subst_term v x e2 : \<tau>" using Let(7)[OF 1 Let(9)] .
+  have 4: "BVar y \<tau>1#\<Gamma> \<turnstile> subst_term v x e2 : \<tau>" using Let(7)[OF 1 Let(9)] .
 
   show ?case using T_LetI[OF 0 4 3] using Let by simp
+next
+  case (TyApp e \<tau>)
+  then show ?case
+    by (smt T.cases T_AppTI subst_term.simps(5) term.distinct(13) term.distinct(23) term.distinct(25) term.distinct(27) term.distinct(29) term.distinct(3) term.eq_iff(3))
+next
+  case (TyLam a e)
+
+  have "\<exists>\<sigma>. \<tau> = (\<forall>a. \<sigma>)" apply (cases rule: T.cases[OF TyLam(7)]) apply auto[6]
+      by (metis TyLam.hyps(2) \<tau>.fresh(4) \<tau>.perm_simps(4) flip_at_simps(2) flip_fresh_fresh fresh_at_base(2) fresh_def list.set(1) list.simps(15) supp_at_base)
+
+  then obtain \<sigma> where P: "\<tau> = (\<forall>a. \<sigma>)" by blast
+  then have e: "BVar x \<tau>' # BTyVar a # \<Gamma> \<turnstile> e : \<sigma>"
+  proof (cases rule: T.cases[OF TyLam(7)])
+    case (7 b \<Gamma>' e' \<sigma>')
+    have 1: "(a \<leftrightarrow> b) \<bullet> e' = e" by (metis "7"(2) "7"(5) Abs1_eq_iff(3) flip_fresh_fresh fresh_PairD(1) term.eq_iff(6))
+    have 2: "(a \<leftrightarrow> b) \<bullet> \<sigma>' = \<sigma>" by (metis "7"(3) Abs1_eq_iff(3) P TyLam.hyps(2) \<tau>.eq_iff(4) \<tau>.perm_simps(4) flip_at_simps(2) flip_fresh_fresh)
+
+    from 7 have "BVar x \<tau>' # BTyVar b # \<Gamma> \<turnstile> e' : \<sigma>'" using context_invariance by auto
+    then have "(a \<leftrightarrow> b) \<bullet> (BVar x \<tau>' # BTyVar b # \<Gamma> \<turnstile> e' : \<sigma>')" by simp
+    then have 3: "((a \<leftrightarrow> b) \<bullet> BVar x \<tau>') # (BTyVar a) # ((a \<leftrightarrow> b) \<bullet> \<Gamma>) \<turnstile> e : \<sigma>" using 1 2 by auto
+
+    have x: "atom a \<sharp> BVar x \<tau>'" by (simp add: TyLam)
+    have "atom b \<sharp> BVar x \<tau>'" using 7(1) 7(5) fresh_Pair fresh_Cons TyLam by metis
+    then have 4: "BVar x \<tau>' # (BTyVar a) # ((a \<leftrightarrow> b) \<bullet> \<Gamma>) \<turnstile> e : \<sigma>" using 3 flip_fresh_fresh[OF x] by metis
+
+    have "atom b \<sharp> \<Gamma>" using 7(1) 7(5) fresh_Pair fresh_Cons by metis
+    then show ?thesis using 4 flip_fresh_fresh[OF TyLam(1)] by auto
+  qed auto
+
+  have "atom a \<sharp> e"
+    by (smt Abs1_eq_iff(3) P T.cases TyLam.prems(1) \<tau>.distinct(11) flip_fresh_fresh fresh_PairD(1) term.distinct(19) term.distinct(27) term.distinct(33) term.distinct(41) term.distinct(9) term.eq_iff(6))
+  then have fresh: "atom a \<sharp> (subst_term v x e, \<Gamma>)" using fresh_subst_term[OF TyLam(3)] TyLam(1) by force
+
+  show ?case using T.T_AbsTI[OF TyLam(6)[OF e TyLam(8)] fresh] P TyLam by force
 qed
 
 theorem preservation: "\<lbrakk> [] \<turnstile> e : \<tau> ; Step e e' \<rbrakk> \<Longrightarrow> [] \<turnstile> e' : \<tau>"

@@ -284,7 +284,7 @@ next
 qed (auto simp: eqvt_def subst_term_type_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
-lemma fresh_subst_term: "\<lbrakk> atom z \<sharp> s ; z = y \<or> atom z \<sharp> t \<rbrakk> \<Longrightarrow> atom z \<sharp> subst_term s y t"
+lemma fresh_subst_term: "\<lbrakk> atom z \<sharp> s ; atom z \<sharp> t \<rbrakk> \<Longrightarrow> atom z \<sharp> subst_term s y t"
   by (nominal_induct t avoiding: z y s rule: term.strong_induct) auto
 
 lemma subst_term_var_name: "atom c \<sharp> (a, e) \<Longrightarrow> subst_term e' a e = subst_term e' c ((a \<leftrightarrow> c) \<bullet> e)"
@@ -383,7 +383,7 @@ where
 
 | T_AppTI: "\<lbrakk> \<Gamma> \<turnstile> e : (\<forall>a . \<sigma>) \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> TyApp e \<tau> : subst_type \<tau> a \<sigma>"
 
-| T_AbsTI: "\<lbrakk> BTyVar a # \<Gamma> \<turnstile> e : \<sigma> ; atom a \<sharp> (e, \<sigma>, \<Gamma>) \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> (\<Lambda> a . e) : (\<forall> a . \<sigma>)"
+| T_AbsTI: "\<lbrakk> BTyVar a # \<Gamma> \<turnstile> e : \<sigma> ; atom a \<sharp> (e, \<Gamma>) \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> (\<Lambda> a . e) : (\<forall> a . \<sigma>)"
 
 lemma fresh_not_isin_tyvar: "atom a \<sharp> \<Gamma> \<Longrightarrow> \<not>isin (BTyVar a) \<Gamma>"
   apply (induction \<Gamma>)
