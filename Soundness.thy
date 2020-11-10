@@ -2,80 +2,67 @@ theory Soundness
   imports Defs
 begin
 
-lemma context_invariance: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; \<forall>x \<tau>'. atom x \<in> fv_term e \<and> (x, \<tau>') \<in> \<Gamma> \<longrightarrow> (x, \<tau>') \<in> \<Gamma>' \<rbrakk> \<Longrightarrow> \<Gamma>' \<turnstile> e : \<tau>"
+no_notation Set.member ("(_/ \<in> _)" [51, 51] 50)
+
+lemma context_invariance: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; \<forall>x \<tau>'. Set.member (atom x) (fv_term e) \<and> BVar x \<tau>' \<in> \<Gamma> \<longrightarrow> BVar x \<tau>' \<in> \<Gamma>' \<rbrakk> \<Longrightarrow> \<Gamma>' \<turnstile> e : \<tau>"
 proof(nominal_induct \<Gamma> e \<tau> avoiding: \<Gamma>' rule: T.strong_induct)
-  case (T_UnitI \<Gamma>)
-  then show ?case using T.T_UnitI by simp
-next
-  case (T_VarI x \<tau> \<Gamma>)
-  then show ?case using T.T_VarI supp_at_base by fastforce
-next
-  case (T_AbsI x \<Gamma> \<tau>1 e \<tau>2)
-  then show ?case using T.T_AbsI by fastforce
-next
   case (T_AppI \<Gamma> e1 \<tau>1 \<tau>2 e2)
-  then show ?case by (metis T.T_AppI Un_iff term.fv_defs(3))
+  then show ?case by (metis T.T_AppI Un_iff term.fv_defs(2))
 next
   case (T_LetI x \<Gamma> e1 \<tau>1 e2 \<tau>2)
-  then have 1: "atom x \<sharp> (\<Gamma>', e1)" by simp
-  from T_LetI have 2: "(x, \<tau>1) # \<Gamma>' \<turnstile> e2 : \<tau>2" by simp
-  show ?case using T.T_LetI[OF 1 2] using T_LetI by simp
-qed
-
-lemma free_in_context: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom x \<in> fv_term e \<rbrakk> \<Longrightarrow> \<exists>\<tau>'. (x, \<tau>') \<in> \<Gamma>"
-proof(nominal_induct \<Gamma> e \<tau> avoiding: x rule: T.strong_induct)
-  case (T_UnitI \<Gamma>)
-  then show ?case by simp
+  then have 1: "\<Gamma>' \<turnstile> e1 : \<tau>1" by auto
+  from T_LetI have 2: "BVar x \<tau>1#\<Gamma>' \<turnstile> e2 : \<tau>2" by auto
+  from T_LetI have 3: "atom x \<sharp> (\<Gamma>', e1)" by force
+  show ?case using T.T_LetI[OF 3 2 1] .
 next
-  case (T_VarI x' \<tau> \<Gamma>)
+  case (T_AbsTI a \<Gamma> e \<sigma>)
+  then have 1: "BTyVar a # \<Gamma>' \<turnstile> e : \<sigma>" by simp
+  from T_AbsTI have 2: "atom a \<sharp> (e, \<sigma>, \<Gamma>')" by simp
+  show ?case using T.T_AbsTI[OF 1 2] .
+qed (auto simp: T.intros supp_at_base)
+
+lemma free_in_context: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; Set.member (atom x) (fv_term e) \<rbrakk> \<Longrightarrow> \<exists>\<tau>'. BVar x \<tau>' \<in> \<Gamma>"
+proof(nominal_induct \<Gamma> e \<tau> avoiding: x rule: T.strong_induct)
+  case (T_VarI x \<tau> \<Gamma>)
   then show ?case by (metis atom_eq_iff singletonD supp_at_base term.fv_defs(1))
 next
-  case (T_AbsI x' \<Gamma> \<tau>1 e \<tau>2)
-  then show ?case by (metis Diff_iff Un_iff fresh_def insert_iff isin.simps(2) list.set(2) no_vars_in_ty term.fv_defs(2))
+  case (T_AbsI x \<Gamma> \<tau>1 e \<tau>2)
+  then show ?case by (metis Diff_iff Un_iff fresh_at_base(2) fresh_def isin.simps(2) no_vars_in_ty term.fv_defs(5))
 next
-  case (T_AppI \<Gamma> e1 \<tau>1 \<tau>2 e2)
-  then show ?case by auto
+  case (T_LetI x \<Gamma> e1 \<tau>1 e2 \<tau>2)
+  then show ?case by (metis Diff_iff Un_iff fresh_at_base(2) isin.simps(2) term.fv_defs(7))
 next
-  case (T_LetI x' \<Gamma> e1 \<tau>1 e2 \<tau>2)
-  then show ?case by (metis Diff_iff UnE fresh_at_base(2) isin.simps(2) term.fv_defs(5))
-qed
+  case (T_AppTI \<Gamma> e a \<sigma> \<tau>)
+  then show ?case using fresh_def by fastforce
+qed auto
 
-lemma fresh_term[simp]: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom x \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom x \<sharp> e"
-  apply (nominal_induct \<Gamma> e \<tau> avoiding: x rule: T.strong_induct)
-      apply (auto simp: fresh_Cons)
-  using fresh_ineq_at_base fresh_not_isin apply force
-  done
+lemma fresh_term_var: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom (x::var) \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom x \<sharp> e"
+proof (nominal_induct \<Gamma> e \<tau> avoiding: x rule: T.strong_induct)
+  case (T_VarI y \<tau> \<Gamma>)
+  then show ?case using T.T_VarI free_in_context fresh_def fresh_not_isin_var term.fv_defs(1) term.supp(1) by blast
+qed (auto simp: fresh_Cons)
 
-lemma fun_ty_lam: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau>1 \<rightarrow> \<tau>2 ; is_v_of_e e \<rbrakk> \<Longrightarrow> \<exists>x e'. e = (\<lambda>x:\<tau>1. e')"
+lemma fun_ty_lam: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau>1 \<rightarrow> \<tau>2 ; is_value e \<rbrakk> \<Longrightarrow> \<exists>x e'. e = (\<lambda>x:\<tau>1. e')"
   by (nominal_induct \<Gamma> e "\<tau>1 \<rightarrow> \<tau>2" rule: T.strong_induct) auto
 
-theorem progress: "[] \<turnstile> e : \<tau> \<Longrightarrow> is_v_of_e e \<or> (\<exists>e'. Step e e')"
+theorem progress: "[] \<turnstile> e : \<tau> \<Longrightarrow> is_value e \<or> (\<exists>e'. Step e e')"
 proof (induction "[] :: \<Gamma>" e \<tau> rule: T.induct)
-  case T_UnitI
-  then show ?case by simp
-next
-  case (T_VarI x \<tau>)
-  then show ?case by simp
-next
-  case (T_AbsI x \<tau>1 e \<tau>2)
-  then show ?case by simp
-next
   case (T_AppI e1 \<tau>1 \<tau>2 e2)
   note IH1 = T_AppI(2)
   note IH2 = T_AppI(4)
 
   from IH1 show ?case
   proof (elim disjE)
-    assume "is_v_of_e e1"
+    assume "is_value e1"
     from IH2 show ?thesis
     proof (elim disjE)
-      assume "is_v_of_e e2"
-      from \<open>is_v_of_e e1\<close> T_AppI(1) have "\<exists>x e. e1 = (\<lambda>x:\<tau>1. e)" by (simp add: fun_ty_lam)
-      then have "\<exists>e'. Step (App e1 e2) e'" using \<open>is_v_of_e e2\<close> ST_BetaI by blast
+      assume "is_value e2"
+      from \<open>is_value e1\<close> T_AppI(1) have "\<exists>x e. e1 = (\<lambda>x:\<tau>1. e)" by (simp add: fun_ty_lam)
+      then have "\<exists>e'. Step (App e1 e2) e'" using \<open>is_value e2\<close> ST_BetaI by blast
       then show ?thesis by simp
     next
       assume "\<exists>e2'. Step e2 e2'"
-      then show ?thesis using ST_App2I \<open>is_v_of_e e1\<close> by blast
+      then show ?thesis using ST_App2I \<open>is_value e1\<close> by blast
     qed
   next
     assume "\<exists>e1'. Step e1 e1'"
@@ -86,77 +73,62 @@ next
 next
   case (T_LetI e1 \<tau>1 x e2 \<tau>2)
   then show ?case using ST_SubstI ST_LetI by blast
-qed
-
-lemma swap_term: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom y \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> ((x \<leftrightarrow> y) \<bullet> \<Gamma>) \<turnstile> (x \<leftrightarrow> y) \<bullet> e : \<tau>"
-proof (nominal_induct \<Gamma> e \<tau> avoiding: x y rule: T.strong_induct)
-  case (T_UnitI \<Gamma>)
-  then show ?case by (simp add: T.T_UnitI)
 next
-  case (T_VarI z \<tau> \<Gamma>)
-  then show ?case
-    by (metis T.T_VarI T.eqvt flip_fresh_fresh no_vars_in_ty)
-next
-  case (T_AbsI x \<Gamma> \<tau>1 e \<tau>2)
-  then show ?case
-    by (metis T.T_AbsI T.eqvt flip_fresh_fresh no_vars_in_ty)
-next
-  case (T_AppI \<Gamma> e1 \<tau>1 \<tau>2 e2)
-  then show ?case using T.T_AppI by fastforce
-next
-  case (T_LetI z \<Gamma> e1 \<tau>1 e2 \<tau>2)
-  then have 1: "atom y \<sharp> (z, \<tau>1) # \<Gamma>" by (simp add: fresh_Cons fresh_at_base(2))
-
-  from T_LetI have e1: "atom z \<sharp> (x \<leftrightarrow> y) \<bullet> e1" by (smt eq_eqvt flip_def fresh_at_base(2) fresh_eqvt swap_atom_simps(3))
-  from T_LetI have "atom z \<sharp> (x \<leftrightarrow> y) \<bullet> \<Gamma>" by (metis flip_def fresh_at_base(2) fresh_permute_iff swap_atom_simps(3))
-  then have 2: "atom z \<sharp> ((x \<leftrightarrow> y) \<bullet> \<Gamma>, (x \<leftrightarrow> y) \<bullet> e1)" using T_LetI e1 by simp
-
-  from T_LetI have "(x \<leftrightarrow> y) \<bullet> ((z, \<tau>1) # \<Gamma>) = (z, \<tau>1)#((x \<leftrightarrow> y) \<bullet> \<Gamma>)" by (simp add: flip_fresh_fresh fresh_at_base(2))
-  then have 3: "(z, \<tau>1) # (x \<leftrightarrow> y) \<bullet> \<Gamma> \<turnstile> (x \<leftrightarrow> y) \<bullet> e2 : \<tau>2" using T_LetI(6)[OF 1, of x] by simp
-
-  show ?case using T.T_LetI[OF 2 3 T_LetI(8)[OF \<open>atom y \<sharp> \<Gamma>\<close>, of x]]
-    by (smt "1" T_LetI.hyps(1) flip_fresh_fresh fresh_Cons fresh_PairD(1) fresh_at_base(2) term.perm_simps(5))
-qed
+  case (T_AppTI e a \<sigma> \<tau>)
+  from T_AppTI(2) show ?case
+  proof (elim disjE)
+    assume "is_value e"
+    then obtain b e1 where "e = (\<Lambda> b . e1)" using T_AppTI
+      by (smt T.cases \<tau>.distinct(11) \<tau>.distinct(5) is_value.simps(1) is_value.simps(4) is_value.simps(5) is_value.simps(7))
+    then show ?thesis using Step.ST_BetaTI T_AppTI by blast
+  next
+    assume "\<exists>e'. Step e e'"
+    then show ?thesis using ST_AppTI by fast
+  qed
+qed auto
 
 lemma T_Abs_Inv:
   assumes a: "\<Gamma> \<turnstile> (\<lambda>x : \<tau>1 . e) : \<tau>" and b: "atom x \<sharp> \<Gamma>"
-  shows "\<exists>\<tau>2. (x, \<tau>1)#\<Gamma> \<turnstile> e : \<tau>2 \<and> \<tau> = (\<tau>1 \<rightarrow> \<tau>2)"
+  shows "\<exists>\<tau>2. BVar x \<tau>1#\<Gamma> \<turnstile> e : \<tau>2 \<and> \<tau> = (\<tau>1 \<rightarrow> \<tau>2)"
 proof (cases rule: T.cases[OF a])
   case (3 x' \<Gamma>' \<tau>1' e' \<tau>2)
-  then show ?thesis
+  have swap: "(x' \<leftrightarrow> x) \<bullet> e' = e" by (metis "3"(2) Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_def permute_eq_iff permute_plus term.eq_iff(5))
+  show ?thesis
   proof (cases "atom x' = atom x")
     case True
-    then show ?thesis by (metis "3"(1) "3"(2) "3"(3) "3"(5) Abs1_eq_iff(3) atom_eq_iff term.eq_iff(2))
+    then show ?thesis by (metis "3"(1) "3"(2) "3"(3) "3"(5) Abs1_eq_iff(3) atom_eq_iff term.eq_iff(5))
   next
     case False
-    then have 1: "atom x \<sharp> (x', \<tau>1') # \<Gamma>'" using b by (simp add: 3 fresh_Cons) 
-    have 2: "((x' \<leftrightarrow> x) \<bullet> ((x', \<tau>1) # \<Gamma>)) \<turnstile> (x' \<leftrightarrow> x) \<bullet> e' : \<tau>2" using swap_term[OF "3"(5) 1, of x'] 3 by auto
+    then have 1: "atom x \<sharp> BVar x' \<tau>1' # \<Gamma>'" using b by (simp add: 3 fresh_Cons)
+    have 2: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1 # \<Gamma>)) \<turnstile> (x' \<leftrightarrow> x) \<bullet> e' : \<tau>2" using T.eqvt
+      by (metis "3"(1) "3"(2) "3"(5) flip_def no_vars_in_ty swap_fresh_fresh term.eq_iff(5))
 
-    have 4: "(x' \<leftrightarrow> x) \<bullet> e' = e" by (metis "3"(2) Abs1_eq_iff(3) False flip_commute term.eq_iff(2))
-    have 5: "((x' \<leftrightarrow> x) \<bullet> ((x', \<tau>1) # \<Gamma>)) = (x, \<tau>1)#\<Gamma>" by (smt "3"(1) "3"(4) Cons_eqvt Pair_eqvt b flip_at_simps(1) flip_fresh_fresh no_vars_in_ty)
+    have 4: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1 # \<Gamma>)) = BVar x \<tau>1#\<Gamma>"
+      by (metis "1" "3"(1) "3"(4) Cons_eqvt a binder.perm_simps(1) flip_at_simps(1) flip_fresh_fresh fresh_Cons fresh_term_var term.fresh(5))
 
-    from 2 3 4 5 show ?thesis by auto
+    from 1 2 3 4 swap show ?thesis by auto
   qed
 qed simp_all
 
 lemma T_Let_Inv:
   assumes a: "\<Gamma> \<turnstile> Let x e1 e2 : \<tau>" and b: "atom x \<sharp> \<Gamma>"
-  shows "\<exists>\<tau>1. \<Gamma> \<turnstile> e1 : \<tau>1 \<and> (x, \<tau>1)#\<Gamma> \<turnstile> e2 : \<tau>"
+  shows "\<exists>\<tau>1. \<Gamma> \<turnstile> e1 : \<tau>1 \<and> BVar x \<tau>1#\<Gamma> \<turnstile> e2 : \<tau>"
 proof (cases rule: T.cases[OF a])
   case (5 x' \<Gamma>' _ \<tau>1 e2' \<tau>2)
+  have swap: "(x' \<leftrightarrow> x) \<bullet> e2' = e2"
+    by (metis "5"(2) Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_def permute_flip_cancel permute_plus term.eq_iff(7))
   show ?thesis
   proof (cases "atom x' = atom x")
     case True
-    then show ?thesis by (metis "5"(1) "5"(2) "5"(3) "5"(5) "5"(6) Abs1_eq_iff(3) atom_eq_iff term.eq_iff(5))
+    then show ?thesis by (metis "5"(1) "5"(2) "5"(3) "5"(5) "5"(6) Abs1_eq_iff(3) atom_eq_iff term.eq_iff(7))
   next
     case False
-    then have 1: "atom x \<sharp> (x', \<tau>1) # \<Gamma>'" using b by (simp add: 5 fresh_Cons)
-    have 2: "((x' \<leftrightarrow> x) \<bullet> ((x', \<tau>1)#\<Gamma>)) \<turnstile> (x' \<leftrightarrow> x) \<bullet> e2' : \<tau>" using swap_term[OF "5"(5) 1, of x'] 5 by blast
+    then have 1: "atom x \<sharp> BVar x' \<tau>1 # \<Gamma>'" using b by (simp add: 5 fresh_Cons)
+    have 2: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1#\<Gamma>)) \<turnstile> (x' \<leftrightarrow> x) \<bullet> e2' : \<tau>" using T.eqvt by (metis "5"(1) "5"(3) "5"(5) flip_fresh_fresh no_vars_in_ty)
+    have 3: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1 # \<Gamma>)) = BVar x \<tau>1#\<Gamma>"
+      by (metis "5"(1) "5"(4) Cons_eqvt b binder.perm_simps(1) flip_at_simps(1) flip_fresh_fresh fresh_PairD(1) no_vars_in_ty)
 
-    have 3: "(x' \<leftrightarrow> x) \<bullet> e2' = e2" by (metis "5"(2) Abs1_eq_iff(3) False flip_commute term.eq_iff(5))
-    have 4: "((x' \<leftrightarrow> x) \<bullet> ((x', \<tau>1) # \<Gamma>)) = (x, \<tau>1)#\<Gamma>" by (smt "5"(1) "5"(4) Cons_eqvt Pair_eqvt b flip_at_simps(1) flip_fresh_fresh fresh_PairD(1) no_vars_in_ty)
-
-    from 2 3 4 5 show ?thesis by auto
+    from 2 3 5 swap show ?thesis by auto
   qed
 qed simp_all
 
