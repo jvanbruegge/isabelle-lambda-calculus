@@ -18,7 +18,7 @@ nominal_datatype "term" =
  | Unit
  | Lam x::"var" "\<tau>" e::"term" binds x in e  ("\<lambda> _ : _ . _" 50)
  | TyLam a::"tyvar" e::"term" binds a in e ("\<Lambda> _ . _" 50)
- | Let x::"var" "term" e2::"term" binds x in e2
+ | Let x::"var" "\<tau>" "term" e2::"term" binds x in e2
 
 nominal_datatype "binder" =
   "BVar" "var" "\<tau>"
@@ -67,7 +67,7 @@ where
 | "is_value (App e1 e2) = False"
 | "is_value (TyApp e \<tau>) = False"
 | "is_value Unit = True"
-| "is_value (Let x e1 e2) = False"
+| "is_value (Let x \<tau> e1 e2) = False"
   apply (auto simp: eqvt_def is_value_graph_aux_def)
   using term.exhaust by blast
 nominal_termination (eqvt) by lexicographic_order
@@ -119,9 +119,8 @@ nominal_function subst_term :: "term => var => term => term" where
 | "subst_term e x (App e1 e2) = (App (subst_term e x e1) (subst_term e x e2))"
 | "subst_term e x (TyApp e1 \<tau>) = (TyApp (subst_term e x e1) \<tau>)"
 | "subst_term _ _ Unit = Unit"
-| "atom y \<sharp> (x, e) \<Longrightarrow> subst_term e x (Let y e1 e2) = (Let y (subst_term e x e1) (subst_term e x e2))"
+| "atom y \<sharp> (x, e) \<Longrightarrow> subst_term e x (Let y \<tau> e1 e2) = (Let y \<tau> (subst_term e x e1) (subst_term e x e2))"
 proof goal_cases
-next
   case (3 P x)
   then obtain e y t where P: "x = (e, y, t)" by (metis prod.exhaust)
   then show ?case
@@ -146,7 +145,7 @@ next
   show ?case using 1 2 3 by argo
 next
   case (17 y x e e2 y' x' e' e2')
-  
+
   obtain c::tyvar where "atom c \<sharp> (y, y',  e, x, e', x', e2, e2', subst_term_sumC (e, x, e2), subst_term_sumC (e', x', e2'))" using obtain_fresh by blast
   then have c: "atom c \<sharp> (subst_term_sumC (e, x, e2), x, e)" "atom c \<sharp> (subst_term_sumC (e', x', e2'), x', e')" "atom c \<sharp> (y, e2, y', e2')" using fresh_Pair by fastforce+
 
@@ -161,7 +160,7 @@ next
 
   show ?case using 1 2 3 by argo
 next
-  case (31 y x e e1 e2 y' x' e' e1' e2')
+  case (31 y x e \<tau> e1 e2 y' x' e' \<tau>' e1' e2')
 
   obtain c::var where "atom c \<sharp> (y, y',  e, x, e', x', e2, e2', subst_term_sumC (e, x, e2), subst_term_sumC (e', x', e2'))" using obtain_fresh by blast
   then have c: "atom c \<sharp> (subst_term_sumC (e, x, e2), x, e)" "atom c \<sharp> (subst_term_sumC (e', x', e2'), x', e')" "atom c \<sharp> (y, e2, y', e2')" using fresh_Pair by fastforce+
@@ -172,9 +171,9 @@ next
   let ?e1 = "subst_term_sumC (e, x, e1)"
   let ?e1' = "subst_term_sumC (e', x', e1')"
   have 0: "?e1 = ?e1'" using 31 by simp
-  have 1: "Let y ?e1 (subst_term_sumC (e, x, e2)) = Let c ?e1 (subst_term_sumC (e, x, (y \<leftrightarrow> c) \<bullet> e2))"
+  have 1: "Let y \<tau> ?e1 (subst_term_sumC (e, x, e2)) = Let c \<tau> ?e1 (subst_term_sumC (e, x, (y \<leftrightarrow> c) \<bullet> e2))"
     using Abs_lst_rename_deep[OF c(1) 31(9) sort_same_y 31(2)] 0 term.eq_iff(6) by fastforce
-  have 2: "Let y' ?e1' (subst_term_sumC (e', x', e2')) = Let c ?e1 (subst_term_sumC (e, x, (y' \<leftrightarrow> c) \<bullet> e2'))"
+  have 2: "Let y' \<tau>' ?e1' (subst_term_sumC (e', x', e2')) = Let c \<tau> ?e1 (subst_term_sumC (e, x, (y' \<leftrightarrow> c) \<bullet> e2'))"
     using Abs_lst_rename_deep[OF c(2) 31(10) sort_same_y' 31(4)] 0 term.eq_iff(6) 31(11) by auto
   have 3: "(y \<leftrightarrow> c) \<bullet> e2 = (y' \<leftrightarrow> c) \<bullet> e2'" using Abs_lst_rename_both[OF c(3) sort_same_y sort_same_y'] 31(11) by force
 
@@ -222,7 +221,7 @@ nominal_function subst_term_type :: "\<tau> \<Rightarrow> tyvar \<Rightarrow> te
 | "atom b \<sharp> (a, \<tau>) \<Longrightarrow> subst_term_type \<tau> a (\<Lambda> b . e2) = (TyLam b (subst_term_type \<tau> a e2))"
 | "subst_term_type \<tau> a (App e1 e2) = App (subst_term_type \<tau> a e1) (subst_term_type \<tau> a e2)"
 | "subst_term_type \<tau> a (TyApp e \<tau>2) = TyApp (subst_term_type \<tau> a e) (subst_type \<tau> a \<tau>2)"
-| "atom y \<sharp> (a, \<tau>) \<Longrightarrow> subst_term_type \<tau> a (Let y e1 e2) = Let y (subst_term_type \<tau> a e1) (subst_term_type \<tau> a e2)"
+| "atom y \<sharp> (a, \<tau>) \<Longrightarrow> subst_term_type \<tau> a (Let y \<tau>' e1 e2) = Let y (subst_type \<tau> a \<tau>') (subst_term_type \<tau> a e1) (subst_term_type \<tau> a e2)"
 proof goal_cases
   case (3 P x)
   then obtain \<tau> a t where P: "x = (\<tau>, a, t)" by (metis prod.exhaust)
@@ -264,19 +263,18 @@ next
 
   show ?case using 1 2 3 by argo
 next
-  case (31 y \<tau> a e1 e2 y' \<tau>' a' e1' e2')
-
-  obtain c::var where "atom c \<sharp> (y, y', \<tau>, a, \<tau>', a', e1, e1', e2, e2', subst_term_type_sumC (a, \<tau>, e2), subst_term_type_sumC (a', \<tau>', e2'))" using obtain_fresh by blast
-  then have c: "atom c \<sharp> (subst_term_type_sumC (a, \<tau>, e2), \<tau>, a)" "atom c \<sharp> (subst_term_type_sumC (a', \<tau>', e2'), \<tau>', a')" "atom c \<sharp> (y, e2, y', e2')" using fresh_Pair by fastforce+
+  case (31 y a \<tau> \<tau>2 e1 e2 y' a' \<tau>' \<tau>2' e1' e2')
+  obtain c::var where "atom c \<sharp> (y, y', \<tau>, a, \<tau>', a', e1, e1', e2, e2', subst_term_type_sumC (\<tau>, a, e2), subst_term_type_sumC (\<tau>', a', e2'))" using obtain_fresh by blast
+  then have c: "atom c \<sharp> (subst_term_type_sumC (\<tau>, a, e2), a, \<tau>)" "atom c \<sharp> (subst_term_type_sumC (\<tau>', a', e2'), a', \<tau>')" "atom c \<sharp> (y, e2, y', e2')" using fresh_Pair by fastforce+
 
   have sort_same_y: "sort_of (atom c) = sort_of (atom y)" by simp
   have sort_same_y': "sort_of (atom c) = sort_of (atom y')" by simp
-  let ?e1 = "subst_term_type_sumC (a, \<tau>, e1)"
-  let ?e2 = "subst_term_type_sumC (a', \<tau>', e1')"
+  let ?e1 = "subst_term_type_sumC (\<tau>, a, e1)"
+  let ?e2 = "subst_term_type_sumC (\<tau>', a', e1')"
 
-  have 1: "Let y ?e1 (subst_term_type_sumC (a, \<tau>, e2)) = Let c ?e1 (subst_term_type_sumC (a, \<tau>, (y \<leftrightarrow> c) \<bullet> e2))"
+  have 1: "Let y (subst_type \<tau> a \<tau>2) ?e1 (subst_term_type_sumC (\<tau>, a, e2)) = Let c (subst_type \<tau> a \<tau>2) ?e1 (subst_term_type_sumC (\<tau>, a, (y \<leftrightarrow> c) \<bullet> e2))"
     using Abs_lst_rename_deep[OF c(1) 31(9) sort_same_y 31(2)] by auto
-  have 2: "Let y' ?e2 (subst_term_type_sumC (a', \<tau>', e2')) = Let c ?e1 (subst_term_type_sumC (a, \<tau>, (y' \<leftrightarrow> c) \<bullet> e2'))"
+  have 2: "Let y' (subst_type \<tau>' a' \<tau>2') ?e2 (subst_term_type_sumC (\<tau>', a', e2')) = Let c (subst_type \<tau> a \<tau>2) ?e1 (subst_term_type_sumC (\<tau>, a, (y' \<leftrightarrow> c) \<bullet> e2'))"
     using Abs_lst_rename_deep[OF c(2) 31(10) sort_same_y' 31(4)] 31(11) by auto
   have 3: "(y \<leftrightarrow> c) \<bullet> e2 = (y' \<leftrightarrow> c) \<bullet> e2'" using Abs_lst_rename_both[OF c(3) sort_same_y sort_same_y'] 31(11) by force
 
@@ -295,7 +293,7 @@ proof (nominal_induct e avoiding: c a e' rule: term.strong_induct)
 next
   case (Let x e1 e2)
   then show ?case
-    by (smt fresh_Pair fresh_at_base(2) list.set(1) list.set(2) permute_flip_at singletonD subst_term.simps(7) term.fresh(7) term.perm_simps(7))
+    by (smt flip_fresh_fresh fresh_Pair fresh_at_base(2) list.set(1) list.set(2) no_vars_in_ty singletonD subst_term.simps(7) term.fresh(7) term.perm_simps(7))
 qed (auto simp: flip_fresh_fresh fresh_Pair fresh_at_base(2))
 
 lemma subst_type_var_name: "atom c \<sharp> (a, \<tau>) \<Longrightarrow> subst_type \<tau>' a \<tau> = subst_type \<tau>' c ((a \<leftrightarrow> c) \<bullet> \<tau>)"
@@ -313,7 +311,7 @@ next
 next
   case (Let x1a x2 x3)
   then show ?case
-    by (smt flip_fresh_fresh fresh_Pair fresh_at_base(2) list.set(1) list.set(2) singletonD subst_term_type.simps(7) term.fresh(7) term.perm_simps(7))
+    by (smt flip_fresh_fresh fresh_Pair fresh_at_base(2) list.set(1) list.set(2) singletonD subst_term_type.simps(7) subst_type_var_name term.fresh(7) term.perm_simps(7))
 qed (auto simp: flip_fresh_fresh fresh_Pair fresh_at_base(2) subst_type_var_name)
 
 lemma subst_term_det: "[[atom a]]lst. e = [[atom b]]lst. e2 \<Longrightarrow> subst_term e' a e = subst_term e' b e2"
@@ -364,6 +362,24 @@ proof -
   show ?thesis using 1 2 3 by argo
 qed
 
+inductive Ty :: "\<Gamma> \<Rightarrow> \<tau> \<Rightarrow> bool"
+and "Ty'" :: "\<Gamma> \<Rightarrow> \<tau> \<Rightarrow> bool" ("_ \<turnstile>\<^sub>t\<^sub>y _")
+where
+  "(\<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>) \<equiv> Ty \<Gamma> \<tau>"
+
+| Ty_Unit: "\<Gamma> \<turnstile>\<^sub>t\<^sub>y TyUnit"
+
+| Ty_Var: "\<lbrakk> BTyVar a \<in> \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>\<^sub>t\<^sub>y TyVar a"
+
+| Ty_Arrow: "\<lbrakk> \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 ; \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>2 \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>\<^sub>t\<^sub>y (\<tau>1 \<rightarrow> \<tau>2)"
+
+| Ty_Forall: "\<lbrakk> BTyVar a # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma> ; atom a \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>\<^sub>t\<^sub>y (\<forall>a. \<sigma>)"
+
+equivariance Ty
+nominal_inductive Ty avoids
+  Ty_Forall: a
+  by (auto simp: fresh_star_def fresh_Unit fresh_Pair)
+
 (** definitions *)
 (* defns Jwf *)
 inductive T :: "\<Gamma> \<Rightarrow> term \<Rightarrow> \<tau> \<Rightarrow> bool"
@@ -375,11 +391,11 @@ where
 
 | T_VarI: "\<lbrakk> BVar x \<tau> \<in>  \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> (Var x) : \<tau>"
 
-| T_AbsI: "\<lbrakk>atom x \<sharp> \<Gamma> ; BVar x \<tau>1 # \<Gamma>  \<turnstile> e : \<tau>2 \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>  (\<lambda> x : \<tau>1 . e)  : (\<tau>1 \<rightarrow> \<tau>2)"
+| T_AbsI: "\<lbrakk>atom x \<sharp> \<Gamma> ; \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 ; BVar x \<tau>1 # \<Gamma>  \<turnstile> e : \<tau>2 \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> (\<lambda> x : \<tau>1 . e) : (\<tau>1 \<rightarrow> \<tau>2)"
 
 | T_AppI: "\<lbrakk> \<Gamma> \<turnstile> e1 : (\<tau>1 \<rightarrow> \<tau>2) ; \<Gamma> \<turnstile> e2 : \<tau>1 \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> App e1 e2 : \<tau>2"
 
-| T_LetI: "\<lbrakk> atom x \<sharp> (\<Gamma>, e1) ; BVar x \<tau>1 # \<Gamma>  \<turnstile> e2 : \<tau>2 ; \<Gamma> \<turnstile> e1 : \<tau>1 \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> Let x e1 e2 : \<tau>2"
+| T_LetI: "\<lbrakk> atom x \<sharp> (\<Gamma>, e1) ; \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 ; BVar x \<tau>1 # \<Gamma> \<turnstile> e2 : \<tau>2 ; \<Gamma> \<turnstile> e1 : \<tau>1 \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> Let x \<tau>1 e1 e2 : \<tau>2"
 
 | T_AppTI: "\<lbrakk> \<Gamma> \<turnstile> e : (\<forall>a . \<sigma>) \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> TyApp e \<tau> : subst_type \<tau> a \<sigma>"
 
@@ -415,9 +431,9 @@ where
 
 | ST_App2I: "\<lbrakk> is_value v ; e1 \<longrightarrow> e2 \<rbrakk> \<Longrightarrow> App v e1 \<longrightarrow> App v e2"
 
-| ST_SubstI: "\<lbrakk> is_value v \<rbrakk> \<Longrightarrow> Let x v e \<longrightarrow> subst_term v x e"
+| ST_SubstI: "\<lbrakk> is_value v \<rbrakk> \<Longrightarrow> Let x \<tau> v e \<longrightarrow> subst_term v x e"
 
-| ST_LetI: "\<lbrakk> e1 \<longrightarrow> e2 \<rbrakk> \<Longrightarrow> Let x e1 e \<longrightarrow> Let x e2 e"
+| ST_LetI: "\<lbrakk> e1 \<longrightarrow> e2 \<rbrakk> \<Longrightarrow> Let x \<tau> e1 e \<longrightarrow> Let x \<tau> e2 e"
 
 | ST_BetaTI: "TyApp (\<Lambda> a . e) \<tau> \<longrightarrow> subst_term_type \<tau> a e"
 
@@ -461,7 +477,7 @@ next
     using ST_App2I value_beta_nf beta_nf_def by auto
 next
   case (ST_SubstI v x e)
-  from \<open>Let x v e \<longrightarrow> e2\<close> show ?case
+  from ST_SubstI(2) show ?case
   proof cases
     case (ST_SubstI x e)
     then show ?thesis using subst_term_det by blast
@@ -470,8 +486,8 @@ next
     then show ?thesis using ST_SubstI.hyps value_beta_nf beta_nf_def by blast
   qed
 next
-  case (ST_LetI e1 e2 x e)
-  from \<open>Let x e1 e \<longrightarrow> e2\<close> show ?case
+  case (ST_LetI t1 t2 x \<tau> e)
+  from \<open>Let x \<tau> t1 e \<longrightarrow> e2\<close> show ?case
     apply cases
     using ST_LetI value_beta_nf beta_nf_def by auto
 next
