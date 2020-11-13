@@ -285,6 +285,15 @@ nominal_termination (eqvt) by lexicographic_order
 lemma fresh_subst_term: "\<lbrakk> atom z \<sharp> s ; atom z \<sharp> t \<rbrakk> \<Longrightarrow> atom z \<sharp> subst_term s y t"
   by (nominal_induct t avoiding: z y s rule: term.strong_induct) auto
 
+lemma fresh_subst_type: "\<lbrakk> atom z \<sharp> \<tau> ; atom z \<sharp> \<sigma> \<rbrakk> \<Longrightarrow> atom z \<sharp> subst_type \<tau> a \<sigma>"
+  by (nominal_induct \<sigma> avoiding: z a \<tau> rule: \<tau>.strong_induct) auto
+
+lemma fresh_subst_term_type: "\<lbrakk> atom z \<sharp> \<tau> ; atom z \<sharp> e \<rbrakk> \<Longrightarrow> atom z \<sharp> subst_term_type \<tau> a e"
+  by (nominal_induct e avoiding: z a \<tau> rule: term.strong_induct) (auto simp: fresh_subst_type)
+
+lemma fresh_after_subst_type: "\<lbrakk> atom a \<sharp> \<tau> \<rbrakk> \<Longrightarrow> atom a \<sharp> subst_type \<tau> a \<sigma>"
+  by (nominal_induct \<sigma> avoiding: a \<tau> rule: \<tau>.strong_induct) auto
+
 lemma subst_term_var_name: "atom c \<sharp> (a, e) \<Longrightarrow> subst_term e' a e = subst_term e' c ((a \<leftrightarrow> c) \<bullet> e)"
 proof (nominal_induct e avoiding: c a e' rule: term.strong_induct)
   case (Var x)
@@ -397,9 +406,9 @@ where
 
 | T_LetI: "\<lbrakk> atom x \<sharp> (\<Gamma>, e1) ; \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 ; BVar x \<tau>1 # \<Gamma> \<turnstile> e2 : \<tau>2 ; \<Gamma> \<turnstile> e1 : \<tau>1 \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> Let x \<tau>1 e1 e2 : \<tau>2"
 
-| T_AppTI: "\<lbrakk> \<Gamma> \<turnstile> e : (\<forall>a . \<sigma>) \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> TyApp e \<tau> : subst_type \<tau> a \<sigma>"
+| T_AppTI: "\<lbrakk> \<Gamma> \<turnstile> e : (\<forall>a . \<sigma>) ; \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> TyApp e \<tau> : subst_type \<tau> a \<sigma>"
 
-| T_AbsTI: "\<lbrakk> BTyVar a # \<Gamma> \<turnstile> e : \<sigma> ; atom a \<sharp> (e, \<Gamma>) \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> (\<Lambda> a . e) : (\<forall> a . \<sigma>)"
+| T_AbsTI: "\<lbrakk> BTyVar a # \<Gamma> \<turnstile> e : \<sigma> ; atom a \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> (\<Lambda> a . e) : (\<forall> a . \<sigma>)"
 
 lemma fresh_not_isin_tyvar: "atom a \<sharp> \<Gamma> \<Longrightarrow> \<not>isin (BTyVar a) \<Gamma>"
   apply (induction \<Gamma>)
