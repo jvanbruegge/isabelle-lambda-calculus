@@ -4,6 +4,10 @@
 
 In this project I want to start with a simply typed lambda calculus, prove type soundness and then extend it step by step until I am at the [latest version of System F](https://repository.brynmawr.edu/cgi/viewcontent.cgi?article=1014&context=compsci_pubs) used in GHC.
 
+## Results
+
+You can find the proof of type safety in [Soundness.thy](./Soundness.thy) and the proof of beta-equivalence in [BetaEquivalence.thy](./BetaEquivalence.thy).
+
 ## Roadmap
 
 -   [x] Start with a simply typed lambda calculus
