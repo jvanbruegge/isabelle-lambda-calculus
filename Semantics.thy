@@ -21,8 +21,15 @@ inductive Step :: "term \<Rightarrow> term \<Rightarrow> bool" ("_ \<longrightar
 equivariance Step
 nominal_inductive Step .
 
+inductive Steps :: "term \<Rightarrow> term \<Rightarrow> bool" (infix "\<longrightarrow>*" 70) where
+  refl: "e \<longrightarrow>* e"
+| trans: "\<lbrakk> e1 \<longrightarrow>* e2 ; e2 \<longrightarrow> e3 \<rbrakk> \<Longrightarrow> Steps e1 e3"
+
 definition beta_nf :: "term \<Rightarrow> bool" where
   "beta_nf e \<equiv> \<nexists>e'. e \<longrightarrow> e'"
+
+definition stuck :: "term \<Rightarrow> bool" where
+  "stuck e \<equiv> \<not>is_value e \<and> beta_nf e"
 
 lemma value_beta_nf: "is_value v \<Longrightarrow> beta_nf v"
   apply (cases v rule: term.exhaust)
