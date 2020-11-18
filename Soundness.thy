@@ -24,7 +24,7 @@ case (T_AppI e1 \<tau>1 \<tau>2 e2)
       then show ?thesis by simp
     next
       assume "\<exists>e2'. Step e2 e2'"
-      then show ?thesis using ST_App2I \<open>is_value e1\<close> by blast
+      then show ?thesis using ST_BetaI T_AppI.hyps(1) \<open>is_value e1\<close> fun_ty_lam by blast 
     qed
   next
     assume "\<exists>e1'. Step e1 e1'"
@@ -34,7 +34,7 @@ case (T_AppI e1 \<tau>1 \<tau>2 e2)
   qed
 next
   case (T_LetI x e1 \<tau>1 e2 \<tau>2)
-  then show ?case using ST_SubstI ST_LetI by blast
+  then show ?case using ST_SubstI by blast
 next
   case (T_AppTI e a \<sigma> \<tau>)
   from T_AppTI(2) show ?case
@@ -281,9 +281,6 @@ next
   next
     case (ST_AppI e2)
     then show ?thesis using T_AppI T.T_AppI by blast
-  next
-    case (ST_App2I e2)
-    then show ?thesis using T_AppI T.T_AppI by blast
   qed
 next
   case (T_LetI x e1 \<tau>1 e2 \<tau>2)
@@ -302,21 +299,6 @@ next
       then have "[BVar y \<tau>1] \<turnstile> e : \<tau>2" using T.eqvt by (metis T_AbsI T_Abs_Inv T_LetI.hyps(3) T_LetI.hyps(4) \<tau>.eq_iff(3) fresh_Nil local.ST_SubstI(1) term.eq_iff(5))
       then show ?thesis using T_LetI ST_SubstI substitution by auto
     qed
-  next
-    case (ST_LetI e1' x' e2')
-
-    have "atom x' \<sharp> e1'" using T_LetI.hyps(6) fresh_Nil fresh_term_var local.ST_LetI(3) by blast
-    then have 1: "atom x' \<sharp> ([], e1')" using fresh_Pair fresh_Nil by auto
-
-    have swap: "(x \<leftrightarrow> x') \<bullet> e2' = e2"
-      by (metis Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_def local.ST_LetI(1) permute_flip_cancel permute_plus)
-
-    have "(x \<leftrightarrow> x') \<bullet> ([BVar x \<tau>1] \<turnstile> e2 : \<tau>2)" by (simp add: T_LetI.hyps(4))
-    then have "((x \<leftrightarrow> x') \<bullet> [BVar x \<tau>1]) \<turnstile> e2' : \<tau>2" by (metis (full_types) T.eqvt T_LetI.hyps(4) flip_commute flip_fresh_fresh local.swap no_vars_in_ty permute_flip_cancel2)
-    then have 2: "[BVar x' \<tau>1] \<turnstile> e2' : \<tau>2" by (simp add: flip_fresh_fresh)
-    have 3: "[] \<turnstile>\<^sub>t\<^sub>y \<tau>1" by (simp add: T_LetI.hyps(3))
-
-    show ?thesis using ST_LetI(2) T.T_LetI[OF 1 3 2 T_LetI(6)[OF ST_LetI(3)]] by simp
   qed
 next
   case (T_AppTI e a \<sigma> \<tau>)
