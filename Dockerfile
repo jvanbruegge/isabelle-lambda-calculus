@@ -12,4 +12,4 @@ RUN for t in Nominal2 FinFun; do \
 
 RUN ./Isabelle/bin/isabelle build -o system_heaps -b Nominal2
 
-COPY ROOT Defs.thy Soundness.thy ./
+COPY ROOT *.thy ./

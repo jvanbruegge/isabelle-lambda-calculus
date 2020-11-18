@@ -1,4 +1,4 @@
 session Lambda = HOL + sessions "HOL-Eisbach" Nominal2
 theories
-    Defs
+    BetaEquivalence
     Soundness
