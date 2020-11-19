@@ -17,7 +17,14 @@ proof (nominal_induct e avoiding: c x e' rule: term.strong_induct)
   then show ?case by (smt flip_fresh_fresh fresh_Pair fresh_at_base(2) list.set(1) list.set(2) no_vars_in_ty singletonD subst_term.simps(7) term.fresh(7) term.perm_simps(7))
 qed (auto simp: flip_fresh_fresh fresh_at_base)
 lemma subst_type_var_name: "atom c \<sharp> \<sigma> \<Longrightarrow> subst_type \<tau> a \<sigma> = subst_type \<tau> c ((a \<leftrightarrow> c) \<bullet> \<sigma>)"
-  by (nominal_induct \<sigma> avoiding: c a \<tau> rule: \<tau>.strong_induct) (auto simp: fresh_at_base)
+proof (nominal_induct \<sigma> avoiding: c a \<tau> rule: \<tau>.strong_induct)
+  case (TyForall b k \<sigma>)
+  then have 1: "atom c \<sharp> \<sigma>" by (simp add: fresh_at_base)
+  have "subst_type \<tau> a \<sigma> = subst_type \<tau> c ((a \<leftrightarrow> c) \<bullet> \<sigma>)" by (rule TyForall(4)[OF 1])
+  then show ?case
+    by (smt TyForall.hyps(1) TyForall.hyps(2) TyForall.hyps(3) \<tau>.perm_simps(5) flip_fresh_fresh fresh_Pair fresh_at_base(2) no_tyvars_in_kinds subst_type.simps(5))
+qed (auto simp: fresh_at_base)
+
 lemma subst_term_type_var_name: "atom c \<sharp> e \<Longrightarrow> subst_term_type \<tau> a e = subst_term_type \<tau> c ((a \<leftrightarrow> c) \<bullet> e)"
 proof (nominal_induct e avoiding: c a \<tau> rule: term.strong_induct)
   case (Lam x \<tau>1 e)
@@ -38,7 +45,7 @@ lemma subst_term_type_same: "[[atom a]]lst. e = [[atom a']]lst. e' \<Longrightar
   by (metis Abs1_eq_iff(3) flip_commute subst_term_type_var_name)
 
 (* atom x \<sharp> \<Gamma> \<Longrightarrow> \<not>isin (B x _) \<Gamma> *)
-lemma fresh_not_isin_tyvar: "atom a \<sharp> \<Gamma> \<Longrightarrow> \<not>isin (BTyVar a) \<Gamma>"
+lemma fresh_not_isin_tyvar: "atom a \<sharp> \<Gamma> \<Longrightarrow> \<not>isin (BTyVar a k) \<Gamma>"
   apply (induction \<Gamma>) apply simp
   by (metis binder.fresh(2) binder.strong_exhaust fresh_Cons fresh_at_base(2) isin.simps(4) isin.simps(5))
 lemma fresh_not_isin_var: "atom x \<sharp> \<Gamma> \<Longrightarrow> \<not>isin (BVar x \<tau>) \<Gamma>"
@@ -57,7 +64,7 @@ qed auto
 
 lemma fresh_subst_type_same: "atom a \<sharp> \<sigma> \<Longrightarrow> subst_type \<tau> a \<sigma> = \<sigma>"
 proof (induction \<tau> a \<sigma> rule: subst_type.induct)
-  case (4 b \<tau> a \<sigma>)
+  case (5 b \<tau> a k \<sigma>)
   then show ?case
     using fresh_Pair fresh_at_base(2) fresh_def list.set(1) list.set(2) subst_type.simps(4) by fastforce
 qed auto
@@ -79,8 +86,7 @@ case (TyVar x)
   then show ?case using fresh_at_base(2) fresh_subst_type_same by auto
 next
   case (TyForall x1 x2a)
-  then show ?case
-    by (smt flip_at_simps(1) flip_at_simps(2) flip_commute fresh_Pair fresh_subst_type fresh_subst_type_same subst_type.eqvt subst_type.simps(4) subst_type_var_name)
+  then show ?case using fresh_subst_type subst_type_var_name by auto
 qed (auto simp: fresh_subst_type)
 
 end

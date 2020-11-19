@@ -12,7 +12,7 @@ inductive Step :: "term \<Rightarrow> term \<Rightarrow> bool" ("_ \<longrightar
 
 | ST_SubstI: "Let x \<tau> v e \<longrightarrow> subst_term v x e"
 
-| ST_BetaTI: "TyApp (\<Lambda> a . e) \<tau> \<longrightarrow> subst_term_type \<tau> a e"
+| ST_BetaTI: "TyApp (\<Lambda> a : k . e) \<tau> \<longrightarrow> subst_term_type \<tau> a e"
 
 | ST_AppTI: "e1 \<longrightarrow> e2 \<Longrightarrow> TyApp e1 \<tau> \<longrightarrow> TyApp e2 \<tau>"
 equivariance Step

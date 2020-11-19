@@ -5,9 +5,9 @@ begin
 nominal_function isin :: "binder \<Rightarrow> \<Gamma> \<Rightarrow> bool" (infixr "\<in>" 80) where
   "isin _ [] = False"
 | "isin (BVar x t) (BVar y t'#xs) = (if x = y then t = t' else isin (BVar x t) xs)"
-| "isin (BVar x t) (BTyVar a#xs) = isin (BVar x t) xs"
-| "isin (BTyVar a) (BVar x t#xs) = isin (BTyVar a) xs"
-| "isin (BTyVar a) (BTyVar b#xs) = (if a = b then True else isin (BTyVar a) xs)"
+| "isin (BVar x t) (BTyVar _ _#xs) = isin (BVar x t) xs"
+| "isin (BTyVar a k) (BVar _ _#xs) = isin (BTyVar a k) xs"
+| "isin (BTyVar a k1) (BTyVar b k2#xs) = (if a = b then k1 = k2 else isin (BTyVar a k1) xs)"
 proof goal_cases
   case (3 P x)
   then obtain t ys where P: "x = (t, ys)" by (metis prod.exhaust)
@@ -32,7 +32,7 @@ is_value :: "term => bool"
 where
 "is_value (Var x) = False"
 | "is_value (\<lambda> x : \<tau> . e) = True"
-| "is_value (\<Lambda> a . e) = True"
+| "is_value (\<Lambda> a : k . e) = True"
 | "is_value (App e1 e2) = False"
 | "is_value (TyApp e \<tau>) = False"
 | "is_value Unit = True"
@@ -45,7 +45,7 @@ nominal_termination (eqvt) by lexicographic_order
 nominal_function subst_term :: "term => var => term => term" where
   "subst_term e x (Var y) = (if x=y then e else Var y)"
 | "atom y \<sharp> (e, x) \<Longrightarrow> subst_term e x (\<lambda> y : \<tau> . e2) = (Lam y \<tau> (subst_term e x e2))"
-| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term e x (\<Lambda> y . e2) = (\<Lambda> y . subst_term e x e2)"
+| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term e x (\<Lambda> y : k . e2) = (\<Lambda> y : k . subst_term e x e2)"
 | "subst_term e x (App e1 e2) = (App (subst_term e x e1) (subst_term e x e2))"
 | "subst_term e x (TyApp e1 \<tau>) = (TyApp (subst_term e x e1) \<tau>)"
 | "subst_term _ _ Unit = Unit"
@@ -73,17 +73,18 @@ nominal_function subst_type :: "\<tau> \<Rightarrow> tyvar \<Rightarrow> \<tau> 
   "subst_type _ _ TyUnit = TyUnit"
 | "subst_type \<tau> a (TyVar b) = (if a=b then \<tau> else TyVar b)"
 | "subst_type \<tau> a (TyArrow \<tau>1 \<tau>2) = TyArrow (subst_type \<tau> a \<tau>1) (subst_type \<tau> a \<tau>2)"
-| "atom b \<sharp> (\<tau>, a) \<Longrightarrow> subst_type \<tau> a (TyForall b \<sigma>) = TyForall b (subst_type \<tau> a \<sigma>)"
+| "subst_type \<tau> a (TyConApp \<tau>1 \<tau>2) = TyConApp (subst_type \<tau> a \<tau>1) (subst_type \<tau> a \<tau>2)"
+| "atom b \<sharp> (\<tau>, a) \<Longrightarrow> subst_type \<tau> a (TyForall b k \<sigma>) = TyForall b k (subst_type \<tau> a \<sigma>)"
 proof goal_cases
   case (3 P x)
   then obtain \<tau> a t where P: "x = (\<tau>, a, t)" by (metis prod.exhaust)
   then show ?case
     apply (cases t rule: \<tau>.strong_exhaust[of _ _ "(\<tau>, a)"])
        apply (auto simp: 3)
-    using 3(4) P fresh_star_def by blast
+    using 3(5) P fresh_star_def by blast
 next
-  case (13 b \<tau> a \<sigma> b' \<tau>' a' \<sigma>')
-  then show ?case using Abs_sumC[OF 13(5) 13(6) 13(1) 13(2)] by fastforce
+  case (18 b \<tau> a k \<sigma> b' \<tau>' a' k' \<sigma>')
+  then show ?case using Abs_sumC[OF 18(5) 18(6) 18(1) 18(2)] by fastforce
 qed (auto simp: eqvt_def subst_type_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
@@ -91,7 +92,7 @@ nominal_function subst_term_type :: "\<tau> \<Rightarrow> tyvar \<Rightarrow> te
   "subst_term_type _ _ (Var x) = Var x"
 | "subst_term_type _ _ Unit = Unit"
 | "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type \<tau> a (\<lambda> y : \<tau>' . e2) = (Lam y (subst_type \<tau> a \<tau>') (subst_term_type \<tau> a e2))"
-| "atom b \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type \<tau> a (\<Lambda> b . e2) = (TyLam b (subst_term_type \<tau> a e2))"
+| "atom b \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type \<tau> a (\<Lambda> b : k . e2) = (TyLam b k (subst_term_type \<tau> a e2))"
 | "subst_term_type \<tau> a (App e1 e2) = App (subst_term_type \<tau> a e1) (subst_term_type \<tau> a e2)"
 | "subst_term_type \<tau> a (TyApp e \<tau>2) = TyApp (subst_term_type \<tau> a e) (subst_type \<tau> a \<tau>2)"
 | "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type \<tau> a (Let y \<tau>' e1 e2) = Let y (subst_type \<tau> a \<tau>') (subst_term_type \<tau> a e1) (subst_term_type \<tau> a e2)"
