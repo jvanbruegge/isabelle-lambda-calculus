@@ -79,8 +79,7 @@ next
   then have 1: "BVar x \<tau>1 # \<Gamma>' \<turnstile> e2 : \<tau>2" by auto
   from T_LetI have 2: "atom x \<sharp> (\<Gamma>', e1)" by auto
   from T_LetI have 3: "\<Gamma>' \<turnstile> e1 : \<tau>1" by force
-  have 4: "\<Gamma>' \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>" using context_invariance_ty[OF T_LetI(4)] T_LetI(10) fv_supp_subset by (simp add: subset_eq)
-  show ?case by (rule T.T_LetI[OF 2 4 1 3])
+  show ?case by (rule T.T_LetI[OF 2 1 3])
 next
   case (T_AppTI \<Gamma> e a k \<sigma> \<tau>)
   then have 1: "\<Gamma>' \<turnstile> e : \<forall> a : k . \<sigma>" by simp
@@ -138,14 +137,13 @@ next
 next
   case (Let y \<tau>1 e1 e2)
   then have 1: "atom y \<sharp> BVar x \<tau>' # \<Gamma>" by (simp add: fresh_Cons)
-  have P: "BVar x \<tau>' # \<Gamma> \<turnstile> e1 : \<tau>1" "BVar y \<tau>1 # BVar x \<tau>' # \<Gamma> \<turnstile> e2 : \<tau>" "BVar x \<tau>' # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>" using T_Let_Inv[OF Let(8) 1] by auto
+  have P: "BVar x \<tau>' # \<Gamma> \<turnstile> e1 : \<tau>1" "BVar y \<tau>1 # BVar x \<tau>' # \<Gamma> \<turnstile> e2 : \<tau>" using T_Let_Inv[OF Let(8) 1] by auto
   have 2: "\<Gamma> \<turnstile> subst_term v x e1 : \<tau>1" by (rule Let(6)[OF P(1) Let(9)])
   have 3: "BVar x \<tau>' # BVar y \<tau>1 # \<Gamma> \<turnstile> e2 : \<tau>" using Let(4) P(2) context_invariance by auto
   have 4: "BVar y \<tau>1 # \<Gamma> \<turnstile> subst_term v x e2 : \<tau>" by (rule Let(7)[OF 3 Let(9)])
-  have 5: "\<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>" using context_invariance_ty[OF P(3)] by auto
   have "atom y \<sharp> subst_term v x e1" using "2" Let(1) fresh_term_var by blast
   then have 6: "atom y \<sharp> (\<Gamma>, subst_term v x e1)" using Let(1) by auto
-  show ?case using T.T_LetI[OF 6 5 4 2] Let by auto
+  show ?case using T.T_LetI[OF 6 4 2] Let by auto
 qed
 
 lemma type_substitution_ty: "\<lbrakk> BTyVar a k # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : k2 ; \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>' : k ; atom a \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile>\<^sub>t\<^sub>y subst_type \<tau>' a \<tau> : k2"
@@ -269,17 +267,17 @@ next
 next
   case (Let x \<tau>1 e1 e2)
   then have 1: "atom x \<sharp> BTyVar a k # \<Gamma>" by (simp add: fresh_Cons)
-  have P: "BTyVar a k # \<Gamma> \<turnstile> e1 : \<tau>1" "BVar x \<tau>1 # BTyVar a k # \<Gamma> \<turnstile> e2 : \<sigma>" "BTyVar a k # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>" using T_Let_Inv[OF Let(9) 1] by auto
+  have P: "BTyVar a k # \<Gamma> \<turnstile> e1 : \<tau>1" "BVar x \<tau>1 # BTyVar a k # \<Gamma> \<turnstile> e2 : \<sigma>" using T_Let_Inv[OF Let(9) 1] by auto
   have 2: "atom x \<sharp> e1" using "1" P(1) fresh_term_var by blast
   have "atom x \<sharp> subst_term_type \<tau>' a e1" using Let P(1) fresh_term_var by blast
   then have 3: "atom x \<sharp> (\<Gamma>', subst_term_type \<tau>' a e1)" using Let(4) by simp
-  have 4: "\<Gamma>' \<turnstile>\<^sub>t\<^sub>y subst_type \<tau>' a \<tau>1 : \<star>" by (smt Let.prems(2) Let.prems(3) Let.prems(5) P(3) context_invariance_ty isin.simps(5) type_substitution_ty)
-  have 5: "atom a \<sharp> BVar x (subst_type \<tau>' a \<tau>1) # \<Gamma>'" using "4" Let.prems(5) fresh_Cons ty_fresh_vars by fastforce
+  have 5: "atom a \<sharp> BVar x (subst_type \<tau>' a \<tau>1) # \<Gamma>'"
+    by (metis Let.hyps(1) Let.prems(2) Let.prems(3) Let.prems(5) binder.fresh(1) context_invariance_ty fresh_Cons fresh_at_base(2) fresh_subst_type ty_fresh_vars)
   have 6: "BTyVar a k # BVar x \<tau>1 # \<Gamma> \<turnstile> e2 : \<sigma>" using context_invariance[OF P(2)] by auto
   have 7: "BVar x \<tau>1 # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>' : k" using Let.prems(2) context_invariance_ty isin.simps(4) by blast
 
   have 9: "BVar x (subst_type \<tau>' a \<tau>1) # \<Gamma>' \<turnstile> subst_term_type \<tau>' a e2 : subst_type \<tau>' a \<sigma>" using Let(8)[OF 6 7 _ _ 5] Let(11) Let(12) by simp
-  show ?case using T.T_LetI[OF 3 4 9] using Let P(1) by auto
+  show ?case using T.T_LetI[OF 3 9] using Let P(1) by auto
 qed
 
 theorem preservation: "\<lbrakk> [] \<turnstile> e : \<tau> ; e \<longrightarrow> e' \<rbrakk> \<Longrightarrow> [] \<turnstile> e' : \<tau>"
@@ -316,13 +314,13 @@ next
     then show ?thesis
     proof (cases "atom x = atom y")
       case True
-      then show ?thesis
-        by (metis T_LetI.hyps(4) T_LetI.hyps(5) local.ST_SubstI(1) local.ST_SubstI(2) subst_term_same substitution)
+      then show ?thesis by (metis Abs1_eq(3) T_LetI.hyps(3) T_LetI.hyps(4) atom_eq_iff local.ST_SubstI(1) local.ST_SubstI(2) substitution)
     next
       case False
       then have 1: "atom y \<sharp> [(x, \<tau>1)]" by (simp add: fresh_Cons fresh_Nil)
       have "(x \<leftrightarrow> y) \<bullet> e2 = e" by (metis Abs1_eq_iff'(3) False flip_commute local.ST_SubstI(1))
-      then have "[BVar y \<tau>1] \<turnstile> e : \<tau>2" using T.eqvt by (metis T_AbsI T_Abs_Inv T_LetI.hyps(3) T_LetI.hyps(4) \<tau>.eq_iff(3) fresh_Nil local.ST_SubstI(1) term.eq_iff(5))
+      then have "[BVar y \<tau>1] \<turnstile> e : \<tau>2" using T.eqvt
+        by (metis Cons_eqvt Nil_eqvt T_LetI.hyps(3) binder.perm_simps(1) flip_at_simps(1) flip_fresh_fresh no_vars_in_ty)
       then show ?thesis using T_LetI ST_SubstI substitution by auto
     qed
   qed
