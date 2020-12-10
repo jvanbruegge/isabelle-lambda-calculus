@@ -37,7 +37,7 @@ qed simp_all
 
 lemma T_Let_Inv:
   assumes a: "\<Gamma> \<turnstile> Let x \<tau>1 e1 e2 : \<tau>" and b: "atom x \<sharp> \<Gamma>"
-  shows "\<Gamma> \<turnstile> e1 : \<tau>1 \<and> BVar x \<tau>1 # \<Gamma> \<turnstile> e2 : \<tau> \<and> \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>"
+  shows "\<Gamma> \<turnstile> e1 : \<tau>1 \<and> BVar x \<tau>1 # \<Gamma> \<turnstile> e2 : \<tau>"
 proof (cases rule: T.cases[OF a])
   case (5 x' \<Gamma>' _ \<tau>1 e2' \<tau>2)
   have swap: "(x' \<leftrightarrow> x) \<bullet> e2' = e2"
@@ -49,10 +49,9 @@ proof (cases rule: T.cases[OF a])
   next
     case False
     then have 1: "atom x \<sharp> BVar x' \<tau>1 # \<Gamma>'" using b by (simp add: 5 fresh_Cons)
-    have 2: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1#\<Gamma>)) \<turnstile> (x' \<leftrightarrow> x) \<bullet> e2' : \<tau>" using T.eqvt by (metis "5"(1) "5"(3) "5"(6) flip_fresh_fresh no_vars_in_ty)
+    have 2: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1#\<Gamma>)) \<turnstile> (x' \<leftrightarrow> x) \<bullet> e2' : \<tau>" using 5(1) 5(3) T.eqvt[OF 5(5)] no_vars_in_ty flip_fresh_fresh by metis
     have 3: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1 # \<Gamma>)) = BVar x \<tau>1#\<Gamma>"
       by (metis "5"(1) "5"(4) Cons_eqvt b binder.perm_simps(1) flip_at_simps(1) flip_fresh_fresh fresh_PairD(1) no_vars_in_ty)
-
     from 2 3 5 swap show ?thesis by auto
   qed
 qed simp_all

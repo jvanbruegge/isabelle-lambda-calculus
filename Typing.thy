@@ -26,7 +26,7 @@ inductive T :: "\<Gamma> \<Rightarrow> term \<Rightarrow> \<tau> \<Rightarrow> b
 
 | T_AppI: "\<lbrakk> \<Gamma> \<turnstile> e1 : (\<tau>1 \<rightarrow> \<tau>2) ; \<Gamma> \<turnstile> e2 : \<tau>1 \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> App e1 e2 : \<tau>2"
 
-| T_LetI: "\<lbrakk> atom x \<sharp> (\<Gamma>, e1) ; \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star> ; BVar x \<tau>1 # \<Gamma> \<turnstile> e2 : \<tau>2 ; \<Gamma> \<turnstile> e1 : \<tau>1 \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> Let x \<tau>1 e1 e2 : \<tau>2"
+| T_LetI: "\<lbrakk> atom x \<sharp> (\<Gamma>, e1) ; BVar x \<tau>1 # \<Gamma> \<turnstile> e2 : \<tau>2 ; \<Gamma> \<turnstile> e1 : \<tau>1 \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> Let x \<tau>1 e1 e2 : \<tau>2"
 
 | T_AppTI: "\<lbrakk> \<Gamma> \<turnstile> e : (\<forall>a : k . \<sigma>) ; \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : k \<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> TyApp e \<tau> : subst_type \<tau> a \<sigma>"
 
