@@ -73,13 +73,12 @@ proof -
   qed
 qed
 
-lemma beta_equivalence: "\<lbrakk> e1 \<longrightarrow>* e1' ; e2 \<longrightarrow>* e2' ; e1 = e2 ; beta_nf e1' ; beta_nf e2' \<rbrakk> \<Longrightarrow> e1' = e2'"
-proof (induction e1 e1' arbitrary: e2 e2' rule: Steps_fwd_induct)
-  case (refl x)
-  then show ?case by simp
-next
-  case (trans x y z)
-  then show ?case by (metis Steps.simps Steps_path beta_same path.elims(2) Step_deterministic)
-qed
+lemma confluence: "\<lbrakk> a \<longrightarrow>* b ; a \<longrightarrow>* c \<rbrakk> \<Longrightarrow> \<exists>d. b \<longrightarrow>* d \<and> c \<longrightarrow>* d"
+  apply (induction a b arbitrary: c rule: Steps_fwd_induct)
+  using Steps.refl apply blast
+  by (metis Step_deterministic Steps.trans Steps_concat Steps_path path.elims(2))
+
+corollary beta_equivalence: "\<lbrakk> e1 \<longrightarrow>* e1' ; e2 \<longrightarrow>* e2' ; e1 = e2 ; beta_nf e1' ; beta_nf e2' \<rbrakk> \<Longrightarrow> e1' = e2'"
+  using beta_same confluence by blast
 
 end
