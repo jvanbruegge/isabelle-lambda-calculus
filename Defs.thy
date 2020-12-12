@@ -41,7 +41,6 @@ where
   using term.exhaust by blast
 nominal_termination (eqvt) by lexicographic_order
 
-(** substitutions *)
 nominal_function subst_term :: "term => term \<Rightarrow> var => term" ("_[_'/_]" [1000,0,0] 1000) where
   "(Var y)[e/x]  = (if x = y then e else Var y)"
 | "(App e1 e2)[e/x] = App e1[e/x] e2[e/x]"
