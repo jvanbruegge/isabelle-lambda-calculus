@@ -39,7 +39,7 @@ proof (nominal_induct e avoiding: c a \<tau> rule: term.strong_induct)
   case (Lam x \<tau>1 e)
   then have "(\<lambda> x:\<tau>1. e)[\<tau>/a] = (\<lambda> x:\<tau>1[\<tau>/a]. e[\<tau>/a])" by simp
   also have "... = (\<lambda> x:((a \<leftrightarrow> c) \<bullet> \<tau>1)[\<tau>/c]. e[\<tau>/a])" using subst_type_var_name Lam by force
-  also have "... = (\<lambda> x:((a \<leftrightarrow> c) \<bullet> \<tau>1)[\<tau>/c]. ((a \<leftrightarrow> c) \<bullet> e)[\<tau>/c])" using Lam by (metis fresh_at_base(2) list.set(1) list.set(2) singletonD term.fresh(5)) 
+  also have "... = (\<lambda> x:((a \<leftrightarrow> c) \<bullet> \<tau>1)[\<tau>/c]. ((a \<leftrightarrow> c) \<bullet> e)[\<tau>/c])" using Lam by (metis fresh_at_base(2) list.set(1) list.set(2) singletonD term.fresh(5))
   also have "... = (\<lambda> x:((a \<leftrightarrow> c) \<bullet> \<tau>1). ((a \<leftrightarrow> c) \<bullet> e))[\<tau>/c]" by simp
   finally show ?case by (simp add: Lam.hyps(2) flip_fresh_fresh)
 next
