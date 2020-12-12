@@ -2,14 +2,28 @@ theory Typing_Lemmas
   imports Typing Lemmas
 begin
 
+no_notation Set.member  ("(_/ : _)" [51, 51] 50)
+
 lemma fun_ty_lam: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau>1 \<rightarrow> \<tau>2 ; is_value e \<rbrakk> \<Longrightarrow> \<exists>x e'. e = (\<lambda>x:\<tau>1. e')"
-  by (nominal_induct \<Gamma> e "\<tau>1 \<rightarrow> \<tau>2" rule: T.strong_induct) auto
+  by (induction \<Gamma> e "\<tau>1 \<rightarrow> \<tau>2" rule: Tm_induct) auto
 
 lemma ty_fresh_vars: "\<lbrakk> \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : k ; atom (a::tyvar) \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom a \<sharp> \<tau>"
-proof (nominal_induct \<Gamma> \<tau> k avoiding: a rule: Ty.strong_induct)
-  case (Ty_Var a \<Gamma>)
-  then show ?case using fresh_ineq_at_base fresh_not_isin_tyvar by force
+proof (nominal_induct \<Gamma> \<tau> k avoiding: a rule: Ty_strong_induct)
+  case (Var \<Gamma> a k)
+  then show ?case using fresh_at_base(2) fresh_not_isin_tyvar by fastforce
 qed (auto simp: fresh_Cons)
+
+lemma term_fresh_tyvars: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom (a::tyvar) \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom a \<sharp> e"
+proof (nominal_induct \<Gamma> e \<tau> avoiding: a rule: Tm_strong_induct)
+  case (Abs \<Gamma> x \<tau>1 e \<tau>2)
+  then have "atom a \<sharp> \<tau>1" by (metis Ctx.cases binder.distinct(1) binder.eq_iff(1) list.inject list.simps(3) tm_context_valid ty_fresh_vars)
+  then show ?case by (simp add: Abs fresh_Cons)
+next
+  case (Let \<Gamma> e1 e2 \<tau>1 \<tau>2 x)
+  then have "atom a \<sharp> \<tau>1" by (metis Ctx.cases binder.distinct(1) binder.eq_iff(1) list.inject list.simps(3) tm_context_valid ty_fresh_vars)
+  then show ?case by (simp add: Let fresh_Cons)
+qed (auto simp: fresh_Cons ty_fresh_vars)
+
 
 (* inversion rules for abstractions *)
 lemma T_Abs_Inv:

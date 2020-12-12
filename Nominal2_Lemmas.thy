@@ -62,4 +62,15 @@ proof -
   show ?thesis using 1 2 3 equal by argo
 qed
 
+lemma Abs_fresh_var:
+  fixes y ::"'a::at" and e ::"'b::fs"
+  obtains c::"'a" and e'::"'b" where "([[atom y]]lst. e = [[atom c]]lst. e') \<and> atom y \<sharp> [[atom c]]lst. e'"
+proof -
+  obtain c::"'a" where "atom c \<sharp> (y, e)" using obtain_fresh by blast
+  have 1: "[[atom y]]lst. e = [[atom c]]lst. (y \<leftrightarrow> c) \<bullet> e" using Abs_lst_rename \<open>atom c \<sharp> (y, e)\<close> by fastforce
+  have 2: "atom y \<sharp> [[atom c]]lst. (y \<leftrightarrow> c) \<bullet> e"
+    by (metis Abs_fresh_iff(3) \<open>atom c \<sharp> (y, e)\<close> flip_at_simps(2) fresh_PairD(2) fresh_at_base_permute_iff)
+  from 1 2 show ?thesis using that[of c "(y \<leftrightarrow> c) \<bullet> e"] by simp
+qed
+
 end
