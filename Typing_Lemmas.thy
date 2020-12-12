@@ -24,27 +24,23 @@ next
   then show ?case by (simp add: Let fresh_Cons)
 qed (auto simp: fresh_Cons ty_fresh_vars)
 
-
 (* inversion rules for abstractions *)
 lemma T_Abs_Inv:
   assumes a: "\<Gamma> \<turnstile> (\<lambda>x : \<tau>1 . e) : \<tau>" and b: "atom x \<sharp> \<Gamma>"
-  obtains \<tau>2 where "BVar x \<tau>1#\<Gamma> \<turnstile> e : \<tau>2" "\<tau> = (\<tau>1 \<rightarrow> \<tau>2)" "\<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>"
-proof (cases rule: T.cases[OF a])
-  case (3 x' \<Gamma>' \<tau>1' e' \<tau>2)
-  have swap: "(x' \<leftrightarrow> x) \<bullet> e' = e" by (metis "3"(2) Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_def permute_eq_iff permute_plus term.eq_iff(5))
+  obtains \<tau>2 where "BVar x \<tau>1#\<Gamma> \<turnstile> e : \<tau>2" "\<tau> = (\<tau>1 \<rightarrow> \<tau>2)"
+proof (cases rule: Tm.cases[OF a])
+  case (2 x' \<tau>1' \<Gamma>' e' \<tau>2)
+  have swap: "(x' \<leftrightarrow> x) \<bullet> e' = e" by (metis "2"(2) Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_def permute_eq_iff permute_plus term.eq_iff(5))
   show ?thesis
   proof (cases "atom x' = atom x")
     case True
-    then show ?thesis using 3 swap that by auto
+    then show ?thesis using 2 swap that by auto
   next
     case False
-    then have 1: "atom x \<sharp> BVar x' \<tau>1' # \<Gamma>'" using b by (simp add: 3 fresh_Cons)
-    have 2: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1 # \<Gamma>)) \<turnstile> (x' \<leftrightarrow> x) \<bullet> e' : \<tau>2" using T.eqvt
-      by (metis "3"(1) "3"(2) "3"(6) flip_def no_vars_in_ty swap_fresh_fresh term.eq_iff(5))
-
+    then have 1: "atom x \<sharp> BVar x' \<tau>1' # \<Gamma>'" using b by (simp add: 2 fresh_Cons)
+    have 3: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1 # \<Gamma>)) \<turnstile> (x' \<leftrightarrow> x) \<bullet> e' : \<tau>2" by (metis "2"(1) "2"(2) "2"(4) Tm.eqvt flip_fresh_fresh no_vars_in_ty term.eq_iff(5))
     have "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1 # \<Gamma>)) = BVar x \<tau>1#\<Gamma>"
-      by (metis "3"(1) "3"(4) Cons_eqvt b binder.perm_simps(1) flip_at_simps(1) flip_def no_vars_in_ty swap_fresh_fresh)
-
+      by (metis "2"(1) "2"(4) Cons_eqvt b binder.perm_simps(1) context_cons_fresh_var flip_at_simps(2) flip_commute flip_fresh_fresh no_vars_in_ty tm_context_valid)
     then show ?thesis using 1 2 3 swap that by auto
   qed
 qed simp_all
@@ -52,42 +48,43 @@ qed simp_all
 lemma T_Let_Inv:
   assumes a: "\<Gamma> \<turnstile> Let x \<tau>1 e1 e2 : \<tau>" and b: "atom x \<sharp> \<Gamma>"
   shows "\<Gamma> \<turnstile> e1 : \<tau>1 \<and> BVar x \<tau>1 # \<Gamma> \<turnstile> e2 : \<tau>"
-proof (cases rule: T.cases[OF a])
-  case (5 x' \<Gamma>' _ \<tau>1 e2' \<tau>2)
-  have swap: "(x' \<leftrightarrow> x) \<bullet> e2' = e2"
-    by (metis "5"(2) Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_def permute_flip_cancel permute_plus term.eq_iff(7))
+proof (cases rule: Tm.cases[OF a])
+  case (7 \<Gamma>' e1' \<tau>1' x' e2' \<tau>2)
+  have swap: "(x' \<leftrightarrow> x) \<bullet> e2' = e2" by (metis "7"(2) Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_def permute_flip_cancel permute_plus term.eq_iff(7))
   show ?thesis
   proof (cases "atom x' = atom x")
     case True
-    then show ?thesis using 5 swap by auto
+    then show ?thesis using 7 swap by auto
   next
     case False
-    then have 1: "atom x \<sharp> BVar x' \<tau>1 # \<Gamma>'" using b by (simp add: 5 fresh_Cons)
-    have 2: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1#\<Gamma>)) \<turnstile> (x' \<leftrightarrow> x) \<bullet> e2' : \<tau>" using 5(1) 5(3) T.eqvt[OF 5(5)] no_vars_in_ty flip_fresh_fresh by metis
+    then have 1: "atom x \<sharp> BVar x' \<tau>1 # \<Gamma>'" using b by (simp add: 7 fresh_Cons)
+    have 2: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1#\<Gamma>)) \<turnstile> (x' \<leftrightarrow> x) \<bullet> e2' : \<tau>" by (metis "7"(1) "7"(2) "7"(3) "7"(5) Tm.eqvt flip_fresh_fresh no_vars_in_ty term.eq_iff(7))
     have 3: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1 # \<Gamma>)) = BVar x \<tau>1#\<Gamma>"
-      by (metis "5"(1) "5"(4) Cons_eqvt b binder.perm_simps(1) flip_at_simps(1) flip_fresh_fresh fresh_PairD(1) no_vars_in_ty)
-    from 2 3 5 swap show ?thesis by auto
+      by (metis "1" "7"(1) "7"(5) Cons_eqvt binder.perm_simps(1) context_cons_fresh_var flip_at_simps(1) flip_fresh_fresh fresh_Cons no_vars_in_ty tm_context_valid)
+    from 2 3 7 swap show ?thesis by auto
   qed
 qed simp_all
 
 lemma T_AbsT_Inv:
   assumes a: "\<Gamma> \<turnstile> (\<Lambda> a : k . e) : \<tau>" and b: "atom a \<sharp> \<Gamma>" "atom a \<sharp> \<tau>"
-  obtains \<sigma> where "BTyVar a k # \<Gamma> \<turnstile> e : \<sigma>" "\<tau> = TyForall a k \<sigma>"
-proof (cases rule: T.cases[OF a])
-  case (7 a' k' \<Gamma>' e' \<sigma>')
-  have swap: "(a \<leftrightarrow> a') \<bullet> e' = e" by (metis (no_types, lifting) "7"(2) Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_def permute_eq_iff permute_plus term.eq_iff(6))
-  then have x: "BTyVar a k # \<Gamma> \<turnstile> e : (a \<leftrightarrow> a') \<bullet> \<sigma>'"
-    by (smt "7"(1) "7"(2) "7"(4) "7"(5) Cons_eqvt T.eqvt b(1) binder.perm_simps(2) flip_at_simps(2) flip_def no_tyvars_in_kinds swap_fresh_fresh term.eq_iff(6))
-  have "\<tau> = (\<forall>a : k . (a \<leftrightarrow> a') \<bullet> \<sigma>')"
-    by (metis "7"(2) "7"(3) Abs1_eq_iff(3) Nominal2_Base.swap_self \<tau>.eq_iff(5) \<tau>.fresh(5) b(2) empty_iff flip_def insert_iff list.set(1) list.set(2) no_vars_in_ty swap_fresh_fresh term.eq_iff(6))
-  then show ?thesis using x that by blast
+  obtains \<sigma> where "BTyVar a k # \<Gamma> \<turnstile> e : \<sigma>" "\<tau> = (\<forall> a:k. \<sigma>)"
+proof (cases rule: Tm.cases[OF a])
+  case (4 a' k' \<Gamma>' e' \<sigma>')
+  then have fresh: "atom a' \<sharp> \<Gamma>" using context_valid context_cons_fresh_tyvar by blast
+  have swap: "(a \<leftrightarrow> a') \<bullet> e' = e" by (metis (no_types, lifting) "4"(2) Abs1_eq_iff(3) Nominal2_Base.swap_self add_flip_cancel flip_def permute_eq_iff permute_plus term.eq_iff(6))
+  show ?thesis
+  proof (cases "atom a = atom a'")
+    case True
+    then show ?thesis by (metis "4"(1) "4"(2) "4"(3) "4"(4) Abs1_eq_iff(3) atom_eq_iff term.eq_iff(6) that)
+  next
+    case False
+    then have 1: "atom a \<sharp> BTyVar a' k # \<Gamma>" using b by (simp add: 4 fresh_Cons)
+    have 2: "((a \<leftrightarrow> a') \<bullet> (BTyVar a' k # \<Gamma>)) \<turnstile> (a \<leftrightarrow> a') \<bullet> e' : (a \<leftrightarrow> a') \<bullet> \<sigma>'" using Tm.eqvt[OF 4(4)] by (metis "4"(1) "4"(2) term.eq_iff(6))
+    have "((a \<leftrightarrow> a') \<bullet> (BTyVar a' k # \<Gamma>)) = ((a \<leftrightarrow> a') \<bullet> BTyVar a' k) # \<Gamma>" using 1 fresh flip_fresh_fresh b(1) by simp
+    then have 3: "((a \<leftrightarrow> a') \<bullet> (BTyVar a' k # \<Gamma>)) = BTyVar a k # \<Gamma>" by (simp add: flip_fresh_fresh)
+    then show ?thesis
+      by (metis "1" "2" "4"(2) "4"(3) Abs1_eq_iff(3) False \<tau>.eq_iff(5) \<tau>.fresh(5) b(2) binder.fresh(2) fresh_Cons fresh_def list.set(1) list.set(2) supp_at_base term.eq_iff(6) that)
+  qed
 qed simp_all
-
-(* freshness *)
-lemma fresh_term_var: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau> ; atom (x::var) \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom x \<sharp> e"
-proof (nominal_induct \<Gamma> e \<tau> avoiding: x rule: T.strong_induct)
-  case (T_VarI x \<tau> \<Gamma>)
-  then show ?case using fresh_ineq_at_base fresh_not_isin_var by force
-qed (auto simp: fresh_Cons)
 
 end
