@@ -44,6 +44,10 @@ inductive Ctx :: "\<Gamma> \<Rightarrow> bool" ("\<turnstile> _")
 
 equivariance Ctx
 
+lemmas Ctx_intros = Ctx_Ty_Tm.intros(1-3)
+lemmas Ty_intros = Ctx_Ty_Tm.intros(4-8)
+lemmas Tm_intros = Ctx_Ty_Tm.intros(9-15)
+
 (* Split induction principles *)
 lemma Ctx_induct[consumes 1, case_names Empty TyVar Var]:
   assumes "\<turnstile> \<Gamma>"
@@ -75,7 +79,46 @@ lemma Tm_induct[consumes 1, case_names Var Abs App TAbs TApp Unit Let]:
 shows "P \<Gamma> e \<tau>"
   using assms(1) by (induction \<Gamma> e \<tau> rule: Ctx_Ty_Tm.inducts(3)) (auto simp: assms)
 
-lemma context_ty_cons[intro]: "\<turnstile> BTyVar a k # \<Gamma> \<Longrightarrow> \<turnstile> \<Gamma>"
+lemma Ctx_Ty_induct[case_names Ctx_Empty Ctx_TyVar Ctx_Var Ty_Var Ty_App Ty_Unit Ty_FunArrow Ty_Forall]:
+  assumes "P []"
+  and "\<And>\<Gamma>' b k2. \<lbrakk> \<turnstile> \<Gamma>' @ \<Gamma> ; P \<Gamma>' ; atom b \<sharp> \<Gamma>' @  \<Gamma> \<rbrakk> \<Longrightarrow> P (BTyVar b k2 # \<Gamma>')"
+  and "\<And>\<Gamma>' \<tau> x. \<lbrakk> \<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; Q \<Gamma>' \<tau> \<star> ; atom x \<sharp> \<Gamma>' @  \<Gamma> \<rbrakk> \<Longrightarrow> P (BVar x \<tau> # \<Gamma>')"
+  and "\<And>\<Gamma>' b k2. \<lbrakk> \<turnstile> \<Gamma>' @ \<Gamma> ; P \<Gamma>' ; BTyVar b k2 \<in> (\<Gamma>' @  \<Gamma>) \<rbrakk> \<Longrightarrow> Q \<Gamma>' (TyVar b) k2"
+  and "\<And>\<Gamma>' \<tau>1 \<kappa>1 \<kappa>2 \<tau>2. \<lbrakk> \<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : KArrow \<kappa>1 \<kappa>2 ; Q \<Gamma>' \<tau>1 (KArrow \<kappa>1 \<kappa>2) ; \<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>2 : \<kappa>1 ; Q \<Gamma>' \<tau>2 \<kappa>1 \<rbrakk> \<Longrightarrow> Q \<Gamma>' (TyConApp \<tau>1 \<tau>2) \<kappa>2"
+  and "\<And>\<Gamma>'. \<lbrakk> \<turnstile> \<Gamma>' @ \<Gamma> ; P \<Gamma>' \<rbrakk> \<Longrightarrow> Q \<Gamma>' TyUnit \<star>"
+  and "\<And>\<Gamma>' \<tau>1 \<tau>2. \<lbrakk> \<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star> ; Q \<Gamma>' \<tau>1 \<star> ; \<Gamma>' @  \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>2 : \<star> ; Q \<Gamma>' \<tau>2 \<star> \<rbrakk> \<Longrightarrow> Q \<Gamma>' (\<tau>1 \<rightarrow> \<tau>2) \<star>"
+  and "\<And>b k2 \<Gamma>' \<sigma>. \<lbrakk> BTyVar b k2 # \<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma> : \<star> ; Q (BTyVar b k2 # \<Gamma>') \<sigma> \<star> \<rbrakk> \<Longrightarrow> Q \<Gamma>' (\<forall> b : k2 . \<sigma>) \<star>"
+  shows "(\<turnstile> \<Gamma>' @ \<Gamma> \<longrightarrow> P \<Gamma>') \<and> (\<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : k2 \<longrightarrow> Q \<Gamma>' \<tau> k2)"
+proof -
+  let ?\<Gamma> = "\<Gamma>' @ \<Gamma>"
+  let ?P = "\<lambda>x. \<forall>\<Gamma>2. (x = \<Gamma>2 @ \<Gamma>) \<longrightarrow> (P \<Gamma>2)"
+  let ?Q = "\<lambda>x y z. \<forall>\<Gamma>2. (x = \<Gamma>2 @ \<Gamma>) \<longrightarrow> (Q \<Gamma>2 y z)"
+
+  have "(\<turnstile> ?\<Gamma> \<longrightarrow> ?P ?\<Gamma>) \<and> (?\<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : k2 \<longrightarrow> ?Q ?\<Gamma> \<tau> k2) \<and> ([] \<turnstile> Unit : TyUnit \<longrightarrow> True)"
+    apply (cases rule: Ctx_Ty_Tm.induct[of "?P" "?Q" "\<lambda>a b c. True"]) apply auto
+  proof (cases)
+    fix \<Gamma>2' b \<kappa> \<Gamma>2
+    assume a: "\<turnstile> \<Gamma>2'" "\<forall>\<Gamma>2. \<Gamma>2' = \<Gamma>2 @ \<Gamma> \<longrightarrow> P \<Gamma>2" "atom b \<sharp> \<Gamma>2'" "BTyVar b \<kappa> # \<Gamma>2' = \<Gamma>2 @ \<Gamma>"
+    show "P \<Gamma>2"
+    proof (cases "\<Gamma>2 = []")
+      case False
+      then obtain G where "\<Gamma>2' = G @ \<Gamma>" by (meson Cons_eq_append_conv a(4))
+      then show ?thesis using assms(2) a by auto
+    qed (simp add: assms(1))
+  next
+    fix \<Gamma>2' \<tau>2 x \<Gamma>2
+    assume a: "\<Gamma>2' \<turnstile>\<^sub>t\<^sub>y \<tau>2 : \<star>" "\<forall>\<Gamma>2. \<Gamma>2' = \<Gamma>2 @ \<Gamma> \<longrightarrow> Q \<Gamma>2 \<tau>2 \<star>" "atom x \<sharp> \<Gamma>2'" "BVar x \<tau>2 # \<Gamma>2' = \<Gamma>2 @ \<Gamma>"
+    show "P \<Gamma>2"
+    proof (cases "\<Gamma>2 = []")
+      case False
+      then obtain G where "\<Gamma>2' = G @ \<Gamma>" by (meson Cons_eq_append_conv a(4))
+      then show ?thesis using assms(3) a by auto
+    qed (simp add: assms(1))
+  qed (auto simp: assms(1,4-8))
+  then show ?thesis by simp
+qed
+
+lemma context_tyvar_cons[intro]: "\<turnstile> BTyVar a k # \<Gamma> \<Longrightarrow> \<turnstile> \<Gamma>"
   using Ctx.cases by fastforce
 
 lemma ty_context_valid: "\<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<kappa> \<Longrightarrow> \<turnstile> \<Gamma>"
@@ -98,6 +141,13 @@ proof (induction \<Gamma> e \<tau> rule: Tm_induct)
   case (Var \<Gamma> x \<tau>)
   then show ?case using fresh_not_isin_var fresh_ineq_at_base by force
 qed (auto simp: fresh_Cons)
+
+lemma type_fresh_tyvars: "\<lbrakk> \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : k ; atom (a::tyvar) \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom a \<sharp> \<tau>"
+proof (induction \<Gamma> \<tau> k rule: Ty_induct)
+  case (Var \<Gamma> a k)
+  then show ?case using fresh_ineq_at_base fresh_not_isin_tyvar by force
+qed (auto simp: fresh_Cons)
+lemmas fresh_in_context = term_fresh_vars type_fresh_tyvars
 
 nominal_inductive Ctx avoids
   Ty_Forall: a
@@ -169,5 +219,75 @@ lemma Tm_strong_induct[consumes 1, case_names Var Abs App TAbs TApp Unit Let]:
   and Let: "\<And>\<Gamma> e1 e2 \<tau>1 \<tau>2 x c. \<lbrakk> atom x \<sharp> c ; \<Gamma> \<turnstile> e1 : \<tau>1 ; (\<And>c. P c \<Gamma> e1 \<tau>1) ; BVar x \<tau>1 # \<Gamma> \<turnstile> e2 : \<tau>2 ; (\<And>c. P c (BVar x \<tau>1 # \<Gamma>) e2 \<tau>2) \<rbrakk> \<Longrightarrow> P c \<Gamma> (Let x \<tau>1 e1 e2) \<tau>2"
 shows "P c \<Gamma> e \<tau>"
   using assms(1) by (induction \<Gamma> e \<tau> rule: Ctx_Ty_Tm.strong_induct(3)[of _ _ _ "\<lambda>c xs. True" "\<lambda>c \<Gamma> \<tau> k. True" P]) (auto simp: assms fresh_star_def)
+
+lemma Ctx_strong_induct_split[case_names Ctx_Empty Ctx_TyVar Ctx_Var Ty_Var Ty_App Ty_Unit Ty_FunArrow Ty_Forall]:
+  fixes P::"'a::fs \<Rightarrow> \<Gamma> \<Rightarrow> bool" and Q::"'a::fs \<Rightarrow> \<Gamma> \<Rightarrow> \<tau> \<Rightarrow> \<kappa> \<Rightarrow> bool"
+  assumes "\<And>c. P c []"
+  and "\<And>\<Gamma>' a k c. \<lbrakk> \<turnstile> \<Gamma>' @ \<Gamma> ; \<And>c. P c \<Gamma>' ; atom a \<sharp> \<Gamma>' @ \<Gamma> \<rbrakk> \<Longrightarrow> P c (BTyVar a k # \<Gamma>')"
+  and "\<And>\<Gamma>' \<tau> x c. \<lbrakk> \<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; \<And>c. Q c \<Gamma>' \<tau> \<star> ; atom x \<sharp> \<Gamma>' @ \<Gamma> \<rbrakk> \<Longrightarrow> P c (BVar x \<tau> # \<Gamma>')"
+  and "\<And>\<Gamma>' a k c. \<lbrakk> \<turnstile> \<Gamma>' @ \<Gamma> ; \<And>c. P c \<Gamma>' ; BTyVar a k \<in> (\<Gamma>' @ \<Gamma>) \<rbrakk> \<Longrightarrow> Q c \<Gamma>' (TyVar a) k"
+  and "\<And>\<Gamma>' \<tau>1 \<kappa>1 \<kappa>2 \<tau>2 c. \<lbrakk> \<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : KArrow \<kappa>1 \<kappa>2 ; \<And>c. Q c \<Gamma>' \<tau>1 (KArrow \<kappa>1 \<kappa>2) ; \<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>2 : \<kappa>1 ; \<And>c. Q c \<Gamma>' \<tau>2 \<kappa>1 \<rbrakk> \<Longrightarrow> Q c \<Gamma>' (TyConApp \<tau>1 \<tau>2) \<kappa>2"
+  and "\<And>\<Gamma>' c. \<lbrakk> \<turnstile> \<Gamma>' @ \<Gamma> ; \<And>c. P c \<Gamma>' \<rbrakk> \<Longrightarrow> Q c \<Gamma>' TyUnit \<star>"
+  and "\<And>\<Gamma>' \<tau>1 \<tau>2 c. \<lbrakk> \<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star> ; \<And>c. Q c \<Gamma>' \<tau>1 \<star> ; \<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>2 : \<star> ; \<And>c. Q c \<Gamma>' \<tau>2 \<star> \<rbrakk> \<Longrightarrow> Q c \<Gamma>' (\<tau>1 \<rightarrow> \<tau>2) \<star>"
+  and "\<And>a k \<Gamma>' \<sigma> c. \<lbrakk> atom a \<sharp> c ; BTyVar a k # \<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma> : \<star> ; \<And>c. Q c (BTyVar a k # \<Gamma>') \<sigma> \<star> \<rbrakk> \<Longrightarrow> Q c \<Gamma>' (\<forall> a : k . \<sigma>) \<star>"
+  shows "(\<turnstile> \<Gamma>' @ \<Gamma> \<longrightarrow> P c \<Gamma>') \<and> (\<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : k \<longrightarrow> Q c \<Gamma>' \<tau> k)"
+proof -
+  let ?P = "\<lambda>c x. \<forall>\<Gamma>2. (x = \<Gamma>2 @ \<Gamma>) \<longrightarrow> P c \<Gamma>2"
+  let ?Q = "\<lambda>c x y z. \<forall>\<Gamma>2. (x = \<Gamma>2 @ \<Gamma>) \<longrightarrow> Q c \<Gamma>2 y z"
+  thm Ctx_Ty_Tm.strong_induct(1)[of "\<Gamma>' @ \<Gamma>" "?P" "?Q" "\<lambda>c x y z. True"]
+
+  show ?thesis apply auto
+  proof -
+    assume wf: "\<turnstile> \<Gamma>' @ \<Gamma>"
+    have "?P c (\<Gamma>' @ \<Gamma>)"
+      apply (cases rule: Ctx_Ty_Tm.strong_induct(1)[of "\<Gamma>' @ \<Gamma>" "?P" "?Q" "\<lambda>c x y z. True", OF wf])
+                     apply (auto simp: assms fresh_star_def)
+    proof -
+      fix \<Gamma>' a k c \<Gamma>2
+      assume a: "\<turnstile> \<Gamma>'" "\<And>c. \<forall>\<Gamma>2. \<Gamma>' = \<Gamma>2 @ \<Gamma> \<longrightarrow> P c \<Gamma>2" "atom a \<sharp> \<Gamma>'" "BTyVar a k # \<Gamma>' = \<Gamma>2 @ \<Gamma>" 
+      show "P c \<Gamma>2"
+      proof (cases "\<Gamma>2 = []")
+        case False
+        then obtain G where "\<Gamma>' = G @ \<Gamma>" by (meson Cons_eq_append_conv a(4)) 
+        then show ?thesis using assms(2) a by auto
+      qed (simp add: assms(1))
+    next
+      fix \<Gamma>' \<tau> x c \<Gamma>2
+      assume a: "\<Gamma>' \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star>" "\<And>c. \<forall>\<Gamma>2. \<Gamma>' = \<Gamma>2 @ \<Gamma> \<longrightarrow> Q c \<Gamma>2 \<tau> \<star>" "atom x \<sharp> \<Gamma>'" "BVar x \<tau> # \<Gamma>' = \<Gamma>2 @ \<Gamma>"
+      show "P c \<Gamma>2"
+      proof (cases "\<Gamma>2 = []")
+        case False
+        then obtain G where "\<Gamma>' = G @ \<Gamma>" by (meson Cons_eq_append_conv a(4))
+        then show ?thesis using assms(3) a by auto
+      qed (simp add: assms(1))
+    qed
+    then show "P c \<Gamma>'" by simp
+  next
+    assume wf: "\<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : k"
+    have "?Q c (\<Gamma>' @ \<Gamma>) \<tau> k"
+      apply (cases rule: Ctx_Ty_Tm.strong_induct(2)[of _ _ _ "?P" "?Q" "\<lambda>c x y z. True", OF wf])
+                    apply (auto simp: assms fresh_star_def)
+    proof -
+      fix \<Gamma>' a k c \<Gamma>2
+      assume a: "\<turnstile> \<Gamma>'" "\<And>c. \<forall>\<Gamma>2. \<Gamma>' = \<Gamma>2 @ \<Gamma> \<longrightarrow> P c \<Gamma>2" "atom a \<sharp> \<Gamma>'" "BTyVar a k # \<Gamma>' = \<Gamma>2 @ \<Gamma>"
+      show "P c \<Gamma>2"
+      proof (cases "\<Gamma>2 = []")
+        case False
+        then obtain G where "\<Gamma>' = G @ \<Gamma>" by (meson Cons_eq_append_conv a(4))
+        then show ?thesis using assms(2) a by auto
+      qed (simp add: assms(1))
+    next
+      fix \<Gamma>' \<tau> x c \<Gamma>2
+      assume a: "\<Gamma>' \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star>" "\<And>c. \<forall>\<Gamma>2. \<Gamma>' = \<Gamma>2 @ \<Gamma> \<longrightarrow> Q c \<Gamma>2 \<tau> \<star>" "atom x \<sharp> \<Gamma>'" "BVar x \<tau> # \<Gamma>' = \<Gamma>2 @ \<Gamma>"
+      show "P c \<Gamma>2"
+      proof (cases "\<Gamma>2 = []")
+        case False
+        then obtain G where "\<Gamma>' = G @ \<Gamma>" by (meson Cons_eq_append_conv a(4))
+        then show ?thesis using assms(3) a by auto
+      qed (simp add: assms(1))
+    qed
+    then show "Q c \<Gamma>' \<tau> k" by simp
+  qed
+qed
 
 end

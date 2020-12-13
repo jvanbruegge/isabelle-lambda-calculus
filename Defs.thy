@@ -114,4 +114,19 @@ next
 qed (auto simp: eqvt_def subst_term_type_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
+nominal_function subst_context :: "\<Gamma> \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> \<Gamma>" ("_[_'/_]" [1000,0,0] 1000) where
+  "subst_context [] _ _ = []"
+| "subst_context (BVar x \<tau> # \<Gamma>) \<tau>' a = BVar x \<tau>[\<tau>'/a] # subst_context \<Gamma> \<tau>' a"
+| "subst_context (BTyVar b k # \<Gamma>) \<tau>' a = (if a = b then subst_context \<Gamma> \<tau>' a else  BTyVar b k # subst_context \<Gamma> \<tau>' a)"
+proof goal_cases
+  case (3 P x)
+  then obtain xs \<tau>' a where P: "x = (xs, \<tau>', a)" by (metis prod.exhaust)
+  then show ?case using 3
+  proof (cases xs)
+    case (Cons a list)
+    then show ?thesis using 3 P by (cases a rule: binder.exhaust) auto
+  qed auto
+qed (auto simp: eqvt_def subst_context_graph_aux_def)
+nominal_termination (eqvt) by lexicographic_order
+
 end

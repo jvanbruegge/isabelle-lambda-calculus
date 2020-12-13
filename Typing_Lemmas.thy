@@ -7,6 +7,9 @@ no_notation Set.member  ("(_/ : _)" [51, 51] 50)
 lemma fun_ty_lam: "\<lbrakk> \<Gamma> \<turnstile> e : \<tau>1 \<rightarrow> \<tau>2 ; is_value e \<rbrakk> \<Longrightarrow> \<exists>x e'. e = (\<lambda>x:\<tau>1. e')"
   by (induction \<Gamma> e "\<tau>1 \<rightarrow> \<tau>2" rule: Tm_induct) auto
 
+lemma forall_ty_lam: "\<lbrakk> \<Gamma> \<turnstile> e : (\<forall> a:k. \<sigma>) ; is_value e \<rbrakk> \<Longrightarrow> \<exists>a' e'. e = (\<Lambda> a':k. e')"
+  by (induction \<Gamma> e "(\<forall> a:k. \<sigma>)" rule: Tm_induct) auto
+
 lemma ty_fresh_vars: "\<lbrakk> \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : k ; atom (a::tyvar) \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom a \<sharp> \<tau>"
 proof (nominal_induct \<Gamma> \<tau> k avoiding: a rule: Ty_strong_induct)
   case (Var \<Gamma> a k)
@@ -86,5 +89,75 @@ proof (cases rule: Tm.cases[OF a])
       by (metis "1" "2" "4"(2) "4"(3) Abs1_eq_iff(3) False \<tau>.eq_iff(5) \<tau>.fresh(5) b(2) binder.fresh(2) fresh_Cons fresh_def list.set(1) list.set(2) supp_at_base term.eq_iff(6) that)
   qed
 qed simp_all
+
+lemma Ty_Forall_Inv:
+  assumes a: "\<Gamma> \<turnstile>\<^sub>t\<^sub>y (\<forall>a:k. \<sigma>) : \<tau>" and b: "atom a \<sharp> \<Gamma>"
+  shows "BTyVar a k # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma> : \<star> \<and> \<tau> = \<star>"
+proof (cases rule: Ty.cases[OF a])
+  case (5 a' k' \<Gamma>' \<sigma>')
+  then have 1: "BTyVar a' k # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma>' : \<star>" by simp
+  have "(a' \<leftrightarrow> a) \<bullet> \<sigma>' = \<sigma>" using Abs_rename_body[of a' \<sigma>' a \<sigma>] 5(2) by auto
+  then have 2: "((a' \<leftrightarrow> a) \<bullet> (BTyVar a' k # \<Gamma>)) \<turnstile>\<^sub>t\<^sub>y \<sigma> : \<star>" using Ty.eqvt[OF 1, of "(a' \<leftrightarrow> a)"] by auto
+  have 3: "((a' \<leftrightarrow> a) \<bullet> (BTyVar a' k # \<Gamma>)) = BTyVar a k # ((a' \<leftrightarrow> a) \<bullet> \<Gamma>)" using Cons_eqvt flip_fresh_fresh by force
+  have 4: "(a' \<leftrightarrow> a) \<bullet> \<Gamma> = \<Gamma>" using b flip_fresh_fresh "5"(1) "5"(4) context_cons_fresh_tyvar ty_context_valid by blast
+  show ?thesis using 2 3 4 5(3) by argo
+qed simp_all
+
+lemma isin_subset:
+  fixes \<Gamma>::"\<Gamma>"
+  assumes "\<turnstile> \<Gamma>' @ \<Gamma>"
+  shows "bndr \<in> \<Gamma> \<longrightarrow> bndr \<in> (\<Gamma>' @ \<Gamma>)"
+proof
+  assume "bndr \<in> \<Gamma>"
+  then show "bndr \<in> (\<Gamma>' @ \<Gamma>)"
+  using assms proof (induction \<Gamma>' arbitrary: \<Gamma>)
+    case (Cons b \<Gamma>2)
+    have 1: "\<turnstile> \<Gamma>2 @ \<Gamma>" using Cons(3) Ctx.cases by auto
+    have 2: "bndr \<in> (\<Gamma>2 @ \<Gamma>)" by (rule Cons(1)[OF Cons(2) 1])
+    show ?case
+    proof (cases b rule: binder.exhaust)
+      case (BVar x \<tau>)
+      then have "atom x \<sharp> (\<Gamma>2 @ \<Gamma>)" using Cons context_cons_fresh_var by auto
+      then show ?thesis using 2 BVar fresh_not_isin_var by (cases bndr rule: binder.exhaust) auto
+    next
+      case (BTyVar a k)
+      then have "atom a \<sharp> (\<Gamma>2 @ \<Gamma>)" using Cons context_cons_fresh_tyvar by auto
+      then show ?thesis using 2 BTyVar fresh_not_isin_tyvar by (cases bndr rule: binder.exhaust) auto
+    qed
+  qed auto
+qed
+
+lemma isin_kind_same: "\<lbrakk> BTyVar a k1 \<in> (\<Gamma>' @ BTyVar a k2 # \<Gamma>) ; \<turnstile> \<Gamma>' @ BTyVar a k2 # \<Gamma> \<rbrakk> \<Longrightarrow> k1 = k2"
+proof (induction \<Gamma>')
+  case (Cons bndr \<Gamma>')
+  then show ?case by (cases rule: Ctx.cases[OF Cons(3)]) (auto split: if_splits simp: fresh_Cons fresh_append fresh_at_base(2))
+qed auto
+
+lemma isin_subst: "\<lbrakk> BTyVar a k \<in> (\<Gamma>' @ BTyVar b k2 # \<Gamma>) ; \<turnstile> \<Gamma>' @ BTyVar b k2 # \<Gamma> ; a \<noteq> b \<rbrakk> \<Longrightarrow> BTyVar a k \<in> (\<Gamma>'[\<sigma>/b] @ \<Gamma>)"
+proof (induction \<Gamma>')
+  case (Cons bndr \<Gamma>')
+  then show ?case
+  proof (cases rule: Ctx.cases[OF Cons(3)])
+    case (2 \<Gamma>2 c k3)
+    then have "BTyVar a k = bndr \<or> BTyVar a k \<in> (\<Gamma>' @ BTyVar b k2 # \<Gamma>)" by (metis Cons.prems(1) Cons_eq_append_conv isin.simps(5) list.inject) 
+    then show ?thesis
+    proof
+      assume a: "BTyVar a k = bndr"
+      then show ?thesis using 2 Cons by auto
+    next
+      assume "BTyVar a k \<in> (\<Gamma>' @ BTyVar b k2 # \<Gamma>)"
+      then show ?thesis using 2 Cons fresh_not_isin_tyvar by auto
+    qed
+  next
+    case (3 \<Gamma> \<tau> x)
+    then show ?thesis using Cons by auto
+  qed simp
+qed simp
+
+lemma context_split_valid: "\<turnstile> \<Gamma>' @ \<Gamma> \<Longrightarrow> \<turnstile> \<Gamma>"
+proof (induction \<Gamma>')
+  case (Cons b \<Gamma>)
+  then show ?case by (cases b rule: binder.exhaust) auto
+qed (auto simp: Ctx_Empty)
 
 end

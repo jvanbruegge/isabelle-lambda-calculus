@@ -73,4 +73,10 @@ proof -
   from 1 2 show ?thesis using that[of c "(y \<leftrightarrow> c) \<bullet> e"] by simp
 qed
 
+lemma Abs_rename_body:
+  fixes a b::"'a::at" and e1 e2::"'b::fs"
+  assumes  "[[atom a]]lst. e1 = [[atom b]]lst. e2"
+  shows "(a \<leftrightarrow> b) \<bullet> e1 = e2"
+  by (metis Abs1_eq_iff'(3) Nominal2_Base.swap_self assms flip_commute flip_def fresh_star_zero supp_perm_eq_test)
+
 end
