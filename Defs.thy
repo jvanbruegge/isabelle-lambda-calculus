@@ -41,78 +41,92 @@ where
   using term.exhaust by blast
 nominal_termination (eqvt) by lexicographic_order
 
-(** substitutions *)
-nominal_function subst_term :: "term => var => term => term" where
-  "subst_term e x (Var y) = (if x=y then e else Var y)"
-| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term e x (\<lambda> y : \<tau> . e2) = (Lam y \<tau> (subst_term e x e2))"
-| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term e x (\<Lambda> y : k . e2) = (\<Lambda> y : k . subst_term e x e2)"
-| "subst_term e x (App e1 e2) = (App (subst_term e x e1) (subst_term e x e2))"
-| "subst_term e x (TyApp e1 \<tau>) = (TyApp (subst_term e x e1) \<tau>)"
-| "subst_term _ _ Unit = Unit"
-| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term e x (Let y \<tau> e1 e2) = (Let y \<tau> (subst_term e x e1) (subst_term e x e2))"
-proof goal_cases
+nominal_function subst_term :: "term => term \<Rightarrow> var => term" ("_[_'/_]" [1000,0,0] 1000) where
+  "(Var y)[e/x]  = (if x = y then e else Var y)"
+| "(App e1 e2)[e/x] = App e1[e/x] e2[e/x]"
+| "(TyApp e1 \<tau>)[e/x] = TyApp e1[e/x] \<tau>"
+| "Unit[_/_] = Unit"
+| "atom y \<sharp> (e, x) \<Longrightarrow> (\<lambda> y:\<tau>. e2)[e/x] = (\<lambda> y:\<tau>. e2[e/x])"
+| "atom y \<sharp> (e, x) \<Longrightarrow> (\<Lambda> y:k. e2)[e/x] = (\<Lambda> y:k. e2[e/x])"
+| "atom y \<sharp> (e, x) \<Longrightarrow> (Let y \<tau> e1 e2)[e/x] = (Let y \<tau> e1[e/x] e2[e/x])"
+proof (goal_cases)
   case (3 P x)
-  then obtain e y t where P: "x = (e, y, t)" by (metis prod.exhaust)
+  then obtain t e y where P: "x = (t, e, y)" by (metis prod.exhaust)
   then show ?case
     apply (cases t rule: term.strong_exhaust[of _ _ "(e, y)"])
-         apply (auto simp: 3)
-    using 3(2) 3(3) 3(7) P fresh_star_def by blast+
+          apply (auto simp: 3)
+    using 3(5-7) P fresh_star_def by blast+
 next
-  case (11 y x e \<tau> e2 y' x' e' \<tau>' e2')
-  then show ?case using Abs_sumC[OF 11(5) 11(6) 11(1) 11(2)] by fastforce
+  case (26 y e x \<tau> e2 y' e' x' \<tau>' e2')
+  then show ?case using Abs_sumC[OF 26(5,6,1,2)] by fastforce
 next
-  case (17 y x e e2 y' x' e' e2')
-  then show ?case using Abs_sumC[OF 17(5) 17(6) 17(1) 17(2)] by fastforce
+  case (29 y e x k e2 y' e' x' k' e2')
+  then show ?case using Abs_sumC[OF 29(5,6,1,2)] by fastforce
 next
-  case (31 y x e \<tau> e1 e2 y' x' e' \<tau>' e1' e2')
-  then show ?case using Abs_sumC[OF 31(9) 31(10) 31(2) 31(4)] by fastforce
+  case (31 y e x \<tau> e1 e2 y' e' x' \<tau>' e1' e2')
+  then show ?case using Abs_sumC[OF 31(9,10,2,4)] by fastforce
 qed (auto simp: eqvt_def subst_term_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
-nominal_function subst_type :: "\<tau> \<Rightarrow> tyvar \<Rightarrow> \<tau> \<Rightarrow> \<tau>" where
-  "subst_type _ _ TyUnit = TyUnit"
-| "subst_type \<tau> a (TyVar b) = (if a=b then \<tau> else TyVar b)"
-| "subst_type \<tau> a (TyArrow \<tau>1 \<tau>2) = TyArrow (subst_type \<tau> a \<tau>1) (subst_type \<tau> a \<tau>2)"
-| "subst_type \<tau> a (TyConApp \<tau>1 \<tau>2) = TyConApp (subst_type \<tau> a \<tau>1) (subst_type \<tau> a \<tau>2)"
-| "atom b \<sharp> (\<tau>, a) \<Longrightarrow> subst_type \<tau> a (TyForall b k \<sigma>) = TyForall b k (subst_type \<tau> a \<sigma>)"
+nominal_function subst_type :: "\<tau> \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> \<tau>" ("_[_'/_]" [1000,0,0] 1000) where
+  "TyUnit[_/_] = TyUnit"
+| "(TyVar b)[\<tau>/a] = (if a=b then \<tau> else TyVar b)"
+| "(\<tau>1 \<rightarrow> \<tau>2)[\<tau>/a] = (\<tau>1[\<tau>/a] \<rightarrow> \<tau>2[\<tau>/a])"
+| "(TyConApp \<tau>1 \<tau>2)[\<tau>/a] = TyConApp \<tau>1[\<tau>/a] \<tau>2[\<tau>/a]"
+| "atom b \<sharp> (\<tau>, a) \<Longrightarrow> (\<forall> b:k. \<sigma>)[\<tau>/a] = (\<forall>b:k. \<sigma>[\<tau>/a])"
 proof goal_cases
   case (3 P x)
-  then obtain \<tau> a t where P: "x = (\<tau>, a, t)" by (metis prod.exhaust)
+  then obtain t \<tau> a where P: "x = (t, \<tau>, a)" by (metis prod.exhaust)
   then show ?case
     apply (cases t rule: \<tau>.strong_exhaust[of _ _ "(\<tau>, a)"])
        apply (auto simp: 3)
     using 3(5) P fresh_star_def by blast
 next
   case (18 b \<tau> a k \<sigma> b' \<tau>' a' k' \<sigma>')
-  then show ?case using Abs_sumC[OF 18(5) 18(6) 18(1) 18(2)] by fastforce
+  then show ?case using Abs_sumC[OF 18(5,6,1,2)] by fastforce
 qed (auto simp: eqvt_def subst_type_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
-nominal_function subst_term_type :: "\<tau> \<Rightarrow> tyvar \<Rightarrow> term \<Rightarrow> term" where
-  "subst_term_type _ _ (Var x) = Var x"
-| "subst_term_type _ _ Unit = Unit"
-| "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type \<tau> a (\<lambda> y : \<tau>' . e2) = (Lam y (subst_type \<tau> a \<tau>') (subst_term_type \<tau> a e2))"
-| "atom b \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type \<tau> a (\<Lambda> b : k . e2) = (TyLam b k (subst_term_type \<tau> a e2))"
-| "subst_term_type \<tau> a (App e1 e2) = App (subst_term_type \<tau> a e1) (subst_term_type \<tau> a e2)"
-| "subst_term_type \<tau> a (TyApp e \<tau>2) = TyApp (subst_term_type \<tau> a e) (subst_type \<tau> a \<tau>2)"
-| "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type \<tau> a (Let y \<tau>' e1 e2) = Let y (subst_type \<tau> a \<tau>') (subst_term_type \<tau> a e1) (subst_term_type \<tau> a e2)"
+nominal_function subst_term_type :: "term \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> term" ("_[_'/_]" [1000,0,0] 1000) where
+  "subst_term_type (Var x) _ _ = Var x"
+| "subst_term_type Unit _ _ = Unit"
+| "subst_term_type (App e1 e2) \<tau> a = App e1[\<tau>/a] e2[\<tau>/a]"
+| "subst_term_type (TyApp e \<tau>2) \<tau> a = TyApp e[\<tau>/a] \<tau>2[\<tau>/a]"
+| "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type (\<lambda> y:\<tau>'. e2) \<tau> a = (\<lambda> y:\<tau>'[\<tau>/a]. e2[\<tau>/a])"
+| "atom b \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type (\<Lambda> b:k. e2) \<tau> a = (\<Lambda> b:k. e2[\<tau>/a])"
+| "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type (Let y \<tau>' e1 e2) \<tau> a = Let y \<tau>'[\<tau>/a] e1[\<tau>/a] e2[\<tau>/a]"
 proof goal_cases
   case (3 P x)
-  then obtain \<tau> a t where P: "x = (\<tau>, a, t)" by (metis prod.exhaust)
+  then obtain t \<tau> a where P: "x = (t, \<tau>, a)" by (metis prod.exhaust)
   then show ?case
     apply (cases t rule: term.strong_exhaust[of _ _ "(\<tau>, a)"])
     using 3 P apply auto[4]
-    using 3(3) 3(4) 3(7) P fresh_star_def by blast+
+    using 3(5,6,7) P fresh_star_def by blast+
 next
-  case (17 y \<tau> a \<tau>2 e y' \<tau>' a' \<tau>2' e')
-  then show ?case using Abs_sumC[OF 17(5) 17(6) 17(1) 17(2)] by fastforce
+  case (26 y \<tau> a \<tau>1 e2 y' \<tau>' a' \<tau>1' e2')
+  then show ?case using Abs_sumC[OF 26(5,6,1,2)] by fastforce
 next
-  case (22 b \<tau> a e b' \<tau>' a' e')
-  then show ?case using Abs_sumC[OF 22(5) 22(6) 22(1) 22(2)] by fastforce
+  case (29 b \<tau> a k e2 b' \<tau>' a' k' e2')
+  then show ?case using Abs_sumC[OF 29(5,6,1,2)] by fastforce
 next
-  case (31 y a \<tau> \<tau>2 e1 e2 y' a' \<tau>' \<tau>2' e1' e2')
-  then show ?case using Abs_sumC[OF 31(9) 31(10) 31(2) 31(4)] by fastforce
+  case (31 y \<tau> a \<tau>1 e1 e2 y' \<tau>' a' \<tau>1' e1' e2')
+  then show ?case using Abs_sumC[OF 31(9,10,2,4)] by fastforce
 qed (auto simp: eqvt_def subst_term_type_graph_aux_def)
+nominal_termination (eqvt) by lexicographic_order
+
+nominal_function subst_context :: "\<Gamma> \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> \<Gamma>" ("_[_'/_]" [1000,0,0] 1000) where
+  "subst_context [] _ _ = []"
+| "subst_context (BVar x \<tau> # \<Gamma>) \<tau>' a = BVar x \<tau>[\<tau>'/a] # subst_context \<Gamma> \<tau>' a"
+| "subst_context (BTyVar b k # \<Gamma>) \<tau>' a = (if a = b then subst_context \<Gamma> \<tau>' a else  BTyVar b k # subst_context \<Gamma> \<tau>' a)"
+proof goal_cases
+  case (3 P x)
+  then obtain xs \<tau>' a where P: "x = (xs, \<tau>', a)" by (metis prod.exhaust)
+  then show ?case using 3
+  proof (cases xs)
+    case (Cons a list)
+    then show ?thesis using 3 P by (cases a rule: binder.exhaust) auto
+  qed auto
+qed (auto simp: eqvt_def subst_context_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
 end

@@ -6,13 +6,13 @@ no_notation HOL.implies (infixr "\<longrightarrow>" 25)
 
 inductive Step :: "term \<Rightarrow> term \<Rightarrow> bool" ("_ \<longrightarrow> _" 25) where
 
-  ST_BetaI: "App (\<lambda> x : \<tau> . e) v \<longrightarrow> subst_term v x e"
+  ST_BetaI: "App (\<lambda> x : \<tau> . e) e2 \<longrightarrow> e[e2/x]"
 
 | ST_AppI: "e1 \<longrightarrow> e2 \<Longrightarrow> App e1 e \<longrightarrow> App e2 e"
 
-| ST_SubstI: "Let x \<tau> v e \<longrightarrow> subst_term v x e"
+| ST_SubstI: "Let x \<tau> e1 e2 \<longrightarrow> e2[e1/x]"
 
-| ST_BetaTI: "TyApp (\<Lambda> a : k . e) \<tau> \<longrightarrow> subst_term_type \<tau> a e"
+| ST_BetaTI: "TyApp (\<Lambda> a : k . e) \<tau> \<longrightarrow> e[\<tau>/a]"
 
 | ST_AppTI: "e1 \<longrightarrow> e2 \<Longrightarrow> TyApp e1 \<tau> \<longrightarrow> TyApp e2 \<tau>"
 equivariance Step

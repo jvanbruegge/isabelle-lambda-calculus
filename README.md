@@ -6,7 +6,7 @@ In this project I want to start with a simply typed lambda calculus, prove type 
 
 ## Results
 
-You can find the proof of type safety in [Soundness.thy](./Soundness.thy) and the proof of beta-equivalence in [BetaEquivalence.thy](./BetaEquivalence.thy).
+You can find the proof of type safety in [Soundness.thy](./Soundness.thy), the proof of confluence in [Confluence.thy](./Confluence.thy) and the determinancy proofs of tying and kinding in [Determinancy.thy](./Determinancy.thy).
 
 ## Roadmap
 

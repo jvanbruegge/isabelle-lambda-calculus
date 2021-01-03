@@ -39,4 +39,7 @@ lemma no_vars_in_ty[simp]: "atom (x :: var) \<sharp> (ty :: \<tau>)"
 lemma no_tyvars_in_kinds[simp]: "atom (a :: tyvar) \<sharp> (k :: \<kappa>)"
   by (induction k rule: \<kappa>.induct) auto
 
+lemma supp_empty_kinds[simp]: "supp (k :: \<kappa>) = {}"
+  by (induction k rule: \<kappa>.induct) (auto simp: \<kappa>.supp)
+
 end
