@@ -182,13 +182,20 @@ qed simp
 lemma context_split_valid: "\<turnstile> \<Gamma>' @ \<Gamma> \<Longrightarrow> \<turnstile> \<Gamma>"
   by (induction \<Gamma>') (auto simp: Ctx_Empty)
 
-lemma isin_split: "\<lbrakk> BVar x \<tau> \<in> \<Gamma> ; \<turnstile> \<Gamma> \<rbrakk> \<Longrightarrow> \<exists>\<Gamma>1 \<Gamma>2. \<Gamma> = \<Gamma>1 @ BVar x \<tau> # \<Gamma>2"
+lemma isin_split: "\<lbrakk> b \<in> \<Gamma> ; \<turnstile> \<Gamma> \<rbrakk> \<Longrightarrow> \<exists>\<Gamma>1 \<Gamma>2. \<Gamma> = \<Gamma>1 @ b # \<Gamma>2"
 proof (induction \<Gamma>)
   case (Cons bndr \<Gamma>)
   then show ?case
-  proof (cases "bndr = BVar x \<tau>")
+  proof (cases "bndr = b")
     case False
-    then have "BVar x \<tau> \<in> \<Gamma>" using Cons(2) by (cases bndr rule: binder.exhaust) auto
+    then have "b \<in> \<Gamma>"
+    proof (cases bndr rule: binder.exhaust)
+      case (BVar x \<tau>)
+      then show ?thesis using False Cons by (cases b rule: binder.exhaust) auto
+    next
+      case (BTyVar a k)
+      then show ?thesis using False Cons by (cases b rule: binder.exhaust) auto
+    qed
     then show ?thesis by (metis Cons.IH Cons.prems(2) Cons_eq_appendI context_cons_valid)
   qed blast
 qed auto
