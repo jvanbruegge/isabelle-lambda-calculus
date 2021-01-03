@@ -28,7 +28,7 @@ proof (cases rule: Tm.cases[OF a])
     then have 1: "atom x \<sharp> BVar x' \<tau>1' # \<Gamma>'" using b by (simp add: 2 fresh_Cons)
     have 3: "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1 # \<Gamma>)) \<turnstile> (x' \<leftrightarrow> x) \<bullet> e' : \<tau>2" by (metis "2"(1) "2"(2) "2"(4) Tm.eqvt flip_fresh_fresh no_vars_in_ty term.eq_iff(5))
     have "((x' \<leftrightarrow> x) \<bullet> (BVar x' \<tau>1) # ((x' \<leftrightarrow> x) \<bullet> \<Gamma>)) = BVar x \<tau>1#\<Gamma>"
-      by (metis "1" "2"(1) "2"(4) CtxE(2) binder.perm_simps(1) context_valid_tm flip_at_simps(1) flip_fresh_fresh fresh_Cons no_vars_in_ty) 
+      by (metis "1" "2"(1) "2"(4) CtxE(2) binder.perm_simps(1) context_valid_tm flip_at_simps(1) flip_fresh_fresh fresh_Cons no_vars_in_ty)
     then show ?thesis using 1 2 3 swap that by auto
   qed
 qed simp_all
@@ -97,7 +97,7 @@ proof (cases rule: Ty.cases[OF a])
   then obtain c::tyvar where "atom c \<sharp> (a, \<sigma>, a2, \<sigma>2, \<Gamma>)" using obtain_fresh by blast
   then have c: "atom c \<sharp> a" "atom c \<sharp> \<sigma>" "atom c \<sharp> a2" "atom c \<sharp> \<sigma>2" "atom c \<sharp> \<Gamma>" by auto
   obtain \<sigma>' where P: "(a2 \<leftrightarrow> c) \<bullet> (\<forall> a2:k. \<sigma>2) = (\<forall> c:k. \<sigma>')" using flip_fresh_fresh by force
-  then have 1: "(a2 \<leftrightarrow> c) \<bullet> \<sigma>2 = \<sigma>'" by (simp add: Abs1_eq_iff(3)) 
+  then have 1: "(a2 \<leftrightarrow> c) \<bullet> \<sigma>2 = \<sigma>'" by (simp add: Abs1_eq_iff(3))
   have 2: "(a2 \<leftrightarrow> c) \<bullet> \<Gamma> = \<Gamma>" by (metis "5"(1) "5"(4) CtxE(1) c(5) context_valid_ty flip_def swap_fresh_fresh)
   have 3: "((a2 \<leftrightarrow> c) \<bullet> BTyVar a2 k) = BTyVar c k" using P by auto
   have "(a2 \<leftrightarrow> c) \<bullet> (BTyVar a2 k # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma>2 : \<star>)" using 5 by auto
@@ -164,7 +164,7 @@ proof (induction \<Gamma>')
   then show ?case
   proof (cases rule: Ctx.cases[OF Cons(3)])
     case (2 \<Gamma>2 c k3)
-    then have "BTyVar a k = bndr \<or> BTyVar a k \<in> (\<Gamma>' @ BTyVar b k2 # \<Gamma>)" by (metis Cons.prems(1) Cons_eq_append_conv isin.simps(5) list.inject) 
+    then have "BTyVar a k = bndr \<or> BTyVar a k \<in> (\<Gamma>' @ BTyVar b k2 # \<Gamma>)" by (metis Cons.prems(1) Cons_eq_append_conv isin.simps(5) list.inject)
     then show ?thesis
     proof
       assume a: "BTyVar a k = bndr"

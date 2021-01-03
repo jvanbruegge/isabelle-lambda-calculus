@@ -61,7 +61,7 @@ lemma subst_context_var_name: "atom c \<sharp> \<Gamma> \<Longrightarrow> subst_
 proof (induction \<Gamma> \<tau> a rule: subst_context.induct)
   case (3 b k \<Gamma> \<tau>' a)
   then have 1: "\<Gamma>[\<tau>'/a] = ((a \<leftrightarrow> c) \<bullet> \<Gamma>)[\<tau>'/c]" by (auto simp: fresh_Cons)
-  have 2: "b \<noteq> c" using 3 binder.fresh(2) fresh_Cons fresh_at_base(2) by blast 
+  have 2: "b \<noteq> c" using 3 binder.fresh(2) fresh_Cons fresh_at_base(2) by blast
   then show ?case
   proof (cases "a = b")
     case True
