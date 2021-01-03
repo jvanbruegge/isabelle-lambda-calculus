@@ -123,7 +123,7 @@ next
   case (Lam x \<tau>1 e)
   have 1: "atom x \<sharp> \<Gamma> @ \<Gamma>'" using fresh_append Lam(1,2) by blast
   obtain \<tau>2 where P: "(BVar x \<tau>1 # \<Gamma>) @ \<Gamma>' \<turnstile> e : \<tau>2" "\<tau> = (\<tau>1 \<rightarrow> \<tau>2)" using T_Abs_Inv[OF Lam(6) 1] by auto
-  have 2: "\<Gamma> @ \<Gamma>' \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>" by (cases rule: Ctx.cases[OF tm_context_valid[OF P(1)]]) auto
+  have 2: "\<Gamma> @ \<Gamma>' \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>" using P(1) context_valid(2) by auto
   have 3: "\<Gamma> @ xs @ \<Gamma>' \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>" by (rule weaken_ty[OF 2 Lam(7)])
   have 4: "atom x \<sharp> \<Gamma> @ xs @ \<Gamma>'" using fresh_append Lam(1-3) by blast
   have 5: "\<turnstile> (BVar x \<tau>1 # \<Gamma>) @ xs @ \<Gamma>'" using Ctx_Var[OF 3 4] by simp
@@ -142,23 +142,47 @@ next
   have 1: "atom x \<sharp> \<Gamma> @ \<Gamma>'" using fresh_append Let(1,2) by blast
   have P: "\<Gamma> @ \<Gamma>' \<turnstile> e1 : \<tau>1" "(BVar x \<tau>1 # \<Gamma>) @ \<Gamma>' \<turnstile> e2 : \<tau>" using T_Let_Inv[OF Let(7) 1] by auto
   have 2: "\<Gamma> @ xs @ \<Gamma>' \<turnstile> e1 : \<tau>1" by (rule Let(5)[OF P(1) Let(8)])
-  have 3: "\<Gamma> @ \<Gamma>' \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>" by (cases rule: Ctx.cases[OF tm_context_valid[OF P(2)]]) auto
+  have 3: "\<Gamma> @ \<Gamma>' \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>" using P(2) context_valid(2) by auto
   have 4: "\<Gamma> @ xs @ \<Gamma>' \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>" by (rule weaken_ty[OF 3 Let(8)])
   have 5: "atom x \<sharp> \<Gamma> @ xs @ \<Gamma>'" using fresh_append Let(1-3) by blast
   have 6: "\<turnstile> (BVar x \<tau>1 # \<Gamma>) @ xs @ \<Gamma>'" using Ctx_Var[OF 4 5] by simp
   have 7: "BVar x \<tau>1 # \<Gamma> @ xs @ \<Gamma>' \<turnstile> e2 : \<tau>" using Let(6)[OF P(2) 6] by simp
   show ?case by (rule Tm_Let[OF 2 7])
 qed
+lemmas weaken = weaken_isin weaken_ty weaken_tm
+
+lemma strengthen_aux:
+  assumes "\<turnstile> \<Gamma>"
+  shows "(\<turnstile> (\<Gamma>' @ BVar x \<tau> # \<Gamma>) \<longrightarrow> \<turnstile> (\<Gamma>' @ \<Gamma>)) \<and> ((\<Gamma>' @ BVar x \<tau> # \<Gamma>) \<turnstile>\<^sub>t\<^sub>y \<sigma> : k \<longrightarrow> (\<Gamma>' @ \<Gamma>) \<turnstile>\<^sub>t\<^sub>y \<sigma> : k)"
+proof (rule Ctx_Ty_induct)
+  fix \<Gamma>' b k2
+  assume a: "\<turnstile> \<Gamma>' @ BVar x \<tau> # \<Gamma>" "\<turnstile> \<Gamma>' @ \<Gamma>" "atom (b::tyvar) \<sharp> \<Gamma>' @ BVar x \<tau> # \<Gamma>"
+  show "\<turnstile> (BTyVar b k2 # \<Gamma>') @ \<Gamma>" by (metis Ctx.simps a(2) a(3) append_Cons fresh_Cons fresh_append)
+next
+  fix \<Gamma>' \<tau>' y
+  assume a: "\<Gamma>' @ BVar x \<tau> # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>' : \<star>" "\<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>' : \<star>" "atom (y::var) \<sharp> \<Gamma>' @ BVar x \<tau> # \<Gamma>"
+  show "\<turnstile> (BVar y \<tau>' # \<Gamma>') @ \<Gamma>" by (metis Ctx.simps a(2) a(3) append_Cons fresh_Cons fresh_append)
+next
+  fix \<Gamma>' b k2
+  assume a: "\<turnstile> \<Gamma>' @ BVar x \<tau> # \<Gamma>" "\<turnstile> \<Gamma>' @ \<Gamma>" "BTyVar b k2 \<in> (\<Gamma>' @ BVar x \<tau> # \<Gamma>)"
+  show "\<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y TyVar b : k2" using Ty_Var a isin_superset_tyvar by blast
+qed (auto intro: Ty_intros simp: assms)
+
+corollary strengthen_context: "\<turnstile> \<Gamma>' @ BVar x \<tau> # \<Gamma> \<Longrightarrow> \<turnstile> \<Gamma>' @ \<Gamma>"
+  using strengthen_aux context_split_valid by blast
+corollary strengthen_ty: "\<Gamma>' @ BVar x \<tau> # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma> : k \<Longrightarrow> \<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma> : k"
+  using strengthen_aux context_split_valid context_valid(1) by blast
+lemmas strengthen = strengthen_context strengthen_ty
 
 lemma type_substitution_aux:
   assumes "\<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma> : k"
   shows "(\<turnstile> (\<Gamma>' @ BTyVar a k # \<Gamma>) \<longrightarrow> \<turnstile> (subst_context \<Gamma>' \<sigma> a @ \<Gamma>)) \<and> ((\<Gamma>' @ BTyVar a k # \<Gamma>) \<turnstile>\<^sub>t\<^sub>y \<tau> : k2 \<longrightarrow> (subst_context \<Gamma>' \<sigma> a @ \<Gamma>) \<turnstile>\<^sub>t\<^sub>y subst_type \<tau> \<sigma> a : k2)"
 proof (rule Ctx_Ty_induct)
-  show "\<turnstile> [][\<sigma>/a] @ \<Gamma>" using ty_context_valid[OF assms(1)] by simp
+  show "\<turnstile> [][\<sigma>/a] @ \<Gamma>" using context_valid(1)[OF assms] by simp
 next
   fix \<Gamma>' a2 k2
   assume a: "\<turnstile> \<Gamma>' @ BTyVar a k # \<Gamma>" "\<turnstile> \<Gamma>'[\<sigma>/a] @ \<Gamma>" "atom (a2::tyvar) \<sharp> \<Gamma>' @ BTyVar a k # \<Gamma>"
-  then have "atom a2 \<sharp> \<sigma>" using assms fresh_in_context(2) fresh_Cons fresh_append by blast 
+  then have "atom a2 \<sharp> \<sigma>" using assms fresh_Cons fresh_append fresh_in_context_ty by blast
   then have 1: "atom a2 \<sharp> \<Gamma>'[\<sigma>/a] @ \<Gamma>" by (meson a(3) fresh_Cons fresh_append fresh_subst_context_tyvar)
   show "\<turnstile> (BTyVar a2 k2 # \<Gamma>')[\<sigma>/a] @ \<Gamma>" using Ctx_TyVar[OF a(2) 1] assms by auto
 next
@@ -172,26 +196,160 @@ next
   then show "\<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y (TyVar a2)[\<sigma>/a] : k2"
   proof (cases "a2 = a")
     case True
-    then have "k = k2" using isin_kind_same a by blast
+    then have "k = k2" using isin_same(1) a by blast
     then have "\<Gamma> \<turnstile>\<^sub>t\<^sub>y (TyVar a2)[\<sigma>/a] : k2" using True assms(1) by simp
     then show ?thesis using weaken_ty[of "[]"] a(2) by auto
   next
     case False
-    have 1: "BTyVar a2 k2 \<in> (\<Gamma>'[\<sigma>/a] @ \<Gamma>)" by (rule isin_subst[OF a(3,1) False])
+    have 1: "BTyVar a2 k2 \<in> (\<Gamma>'[\<sigma>/a] @ \<Gamma>)" by (rule isin_subst_tyvar[OF a(3,1) False])
     show ?thesis using Ty_Var[OF a(2) 1] False by simp
   qed
 next
   fix b k2 \<Gamma>' \<sigma>'
   assume a: "(BTyVar b k2 # \<Gamma>' @ BTyVar a k # \<Gamma>) \<turnstile>\<^sub>t\<^sub>y \<sigma>' : \<star>" "(BTyVar b k2 # \<Gamma>')[\<sigma>/a] @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma>'[\<sigma>/a] : \<star>"
-  have 1: "a \<noteq> b" by (metis a(1) binder.fresh(2) context_cons_fresh_tyvar fresh_Cons fresh_append fresh_at_base(2) ty_context_valid)
+  have 1: "a \<noteq> b" by (metis CtxE(1) a(1) binder.fresh(2) context_valid_ty fresh_Cons fresh_append fresh_at_base(2))
   then have 2: "BTyVar b k2 # \<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma>'[\<sigma>/a] : \<star>" using a(2) by simp
   show "\<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y (\<forall> b : k2 . \<sigma>')[\<sigma>/a] : \<star>" using Ty_Forall[OF 2]
-    by (metis "1" "2" assms atom_eq_iff context_cons_fresh_tyvar fresh_Pair fresh_append fresh_at_base(2) subst_type.simps(5) ty_context_valid ty_fresh_vars)
+    by (metis "1" "2" CtxE(1) assms atom_eq_iff context_valid_ty fresh_Pair fresh_append fresh_at_base(2) fresh_in_context_ty subst_type.simps(5))
 qed (auto intro: Ty_intros)
 
 corollary type_substitution_context: "\<lbrakk> \<turnstile> \<Gamma>' @ BTyVar a k # \<Gamma> ; \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma> : k \<rbrakk> \<Longrightarrow> \<turnstile> \<Gamma>'[\<sigma>/a] @ \<Gamma>"
   using type_substitution_aux by blast
 corollary type_substitution_ty: "\<lbrakk> \<Gamma>' @ BTyVar a k # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : k2 ; \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma> : k \<rbrakk> \<Longrightarrow> \<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>[\<sigma>/a] : k2"
   using type_substitution_aux by blast
+
+lemma typing_regularity: "\<Gamma> \<turnstile> e : \<tau> \<Longrightarrow> \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star>"
+proof (induction \<Gamma> e \<tau> rule: Tm_induct)
+  case (Var \<Gamma> x \<tau>)
+  then obtain \<Gamma>1 \<Gamma>2 where 1: "\<Gamma> = \<Gamma>1 @ BVar x \<tau> # \<Gamma>2" using isin_split by blast
+  then have "\<Gamma>2 \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star>" using context_regularity Var(1) by blast
+  then show ?case using weaken_ty[of "[]" \<Gamma>2 \<tau> \<star> "\<Gamma>1 @ [BVar x \<tau>]"] Var(1) 1 by simp
+next
+  case (Abs \<Gamma> x \<tau>1 e \<tau>2)
+  have 1: "\<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<star>" using context_regularity context_valid(1)[OF Abs(2)] by blast
+  have 2: "\<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>2 : \<star>" using strengthen_ty[of "[]"] Abs(2) by force
+  show ?case by (rule Ty_FunArrow[OF 1 2])
+next
+  case (TApp \<Gamma> a k e \<sigma> \<tau>)
+  obtain a' \<sigma>' where P: "(\<forall> a:k. \<sigma>) = (\<forall> a':k. \<sigma>')" "BTyVar a' k # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma>' : \<star>" by (cases rule: Ty.cases[OF TApp(3)]) auto
+  have "\<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma>'[\<tau>/a'] : \<star>" using type_substitution_ty[of "[]", OF _ TApp(2)] P by auto
+  then show ?case using P(1) subst_type_same by auto
+next
+  case (Let \<Gamma> e1 e2 \<tau>1 \<tau>2 x)
+  then show ?case using strengthen_ty[of "[]"] by force
+qed (auto intro: Ty_intros)
+
+lemma isin_subst_var: "\<Gamma>' @ BTyVar a k # \<Gamma> \<turnstile> Var x : \<tau> \<Longrightarrow> BVar x \<tau>[\<sigma>/a] \<in> (\<Gamma>'[\<sigma>/a] @ \<Gamma>)"
+proof (induction \<Gamma>')
+  case Nil
+  then have "atom a \<sharp> \<tau>" by (metis CtxE(1) TmE(1) Tm_Var append_eq_Cons_conv fresh_in_context_ty isin.simps(3) typing_regularity)
+  then show ?case using Nil.prems fresh_subst_type_same by auto
+next
+  case (Cons bndr \<Gamma>')
+  then show ?case using Tm_Var by (cases bndr rule: binder.exhaust) auto
+qed
+
+lemma type_substitution_term: "\<lbrakk> \<Gamma>' @ BTyVar a k # \<Gamma> \<turnstile> e : \<tau> ; \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<sigma> : k \<rbrakk> \<Longrightarrow> \<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile> e[\<sigma>/a] : \<tau>[\<sigma>/a]"
+proof (nominal_induct e avoiding: \<tau> a \<sigma> \<Gamma>' \<Gamma> rule: term.strong_induct)
+  case (Var x)
+  then have P: "\<turnstile> \<Gamma>' @ BTyVar a k # \<Gamma>" "BVar x \<tau> \<in> (\<Gamma>' @ BTyVar a k # \<Gamma>)" by auto
+  have 1: "\<turnstile> \<Gamma>'[\<sigma>/a] @ \<Gamma>" by (rule type_substitution_context[OF P(1) Var(2)])
+  then show ?case using Tm_Var[OF 1] Var isin_subst_var by auto
+next
+  case (App e1 e2)
+  obtain \<tau>1 where P: "\<Gamma>' @ BTyVar a k # \<Gamma> \<turnstile> e1 : \<tau>1 \<rightarrow> \<tau>" "\<Gamma>' @ BTyVar a k # \<Gamma> \<turnstile> e2 : \<tau>1" by (cases rule: Tm.cases[OF App(3)]) auto 
+  have 1: "\<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile> e1[\<sigma>/a] : \<tau>1[\<sigma>/a] \<rightarrow> \<tau>[\<sigma>/a]" using App(1)[OF P(1) App(4)] by simp
+  have 2: "\<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile> e2[\<sigma>/a] : \<tau>1[\<sigma>/a]" by (rule App(2)[OF P(2) App(4)])
+  show ?case using Tm_App[OF 1 2] by simp
+next
+  case (TyApp e \<tau>2)
+  obtain b k2 \<sigma>' where P: "\<Gamma>' @ BTyVar a k # \<Gamma> \<turnstile> e : (\<forall> b:k2. \<sigma>')" "\<Gamma>' @ BTyVar a k # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>2 : k2" "\<tau> = \<sigma>'[\<tau>2/b]" by (cases rule: Tm.cases[OF TyApp(2)]) auto
+  obtain c::tyvar where "atom c \<sharp> (a, b, \<Gamma>, \<Gamma>', \<sigma>, \<sigma>', \<tau>2)" using obtain_fresh by blast
+  then have c: "atom c \<sharp> \<sigma>'" "atom c \<sharp> \<sigma>" "atom c \<sharp> a" by auto
+  obtain \<sigma>2 where 1: "(\<forall> b:k2. \<sigma>') = (\<forall> c:k2. \<sigma>2)" using Abs_lst_rename[OF c(1)] by auto
+  then have 2: "\<Gamma>' @ BTyVar a k # \<Gamma> \<turnstile> e : (\<forall> c:k2. \<sigma>2)" using P(1) by argo
+  have 3: "\<tau> = \<sigma>2[\<tau>2/c]" using subst_type_same 1 P(3) by simp
+  have 4: "\<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile> e[\<sigma>/a] : (\<forall> c : k2 . \<sigma>2[\<sigma>/a])" using TyApp(1)[OF 2 TyApp(3)] c(2,3) by simp
+  have 5: "\<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>2[\<sigma>/a] : k2" by (rule type_substitution_ty[OF P(2) TyApp(3)])
+  show ?case using Tm_TApp[OF 4 5] subst_subst(2)[of c a \<sigma> \<sigma>2 \<tau>2] 3 c(2,3) by simp
+next
+  case Unit
+  then have "\<tau> = TyUnit" by auto
+  then show ?case using Tm_Unit type_substitution_context[OF context_valid(2)[OF Unit(1)] Unit(2)] by simp
+next
+  case (Lam x \<tau>1 e)
+  have 1: "atom x \<sharp> \<Gamma>' @ BTyVar a k # \<Gamma>" using fresh_Cons fresh_append Lam(2,4,5) by force
+  obtain \<tau>2 where P: "BVar x \<tau>1 # \<Gamma>' @ BTyVar a k # \<Gamma> \<turnstile> e : \<tau>2" "\<tau> = (\<tau>1 \<rightarrow> \<tau>2)" by (rule T_Abs_Inv[OF Lam.prems(1) 1])
+  then have 2: "BVar x \<tau>1[\<sigma>/a] # \<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile> e[\<sigma>/a] : \<tau>2[\<sigma>/a]" using Lam(6)[of "BVar x \<tau>1 # \<Gamma>'"] Lam(8) by simp
+  show ?case using Tm_Abs[OF 2] P(2) by simp
+next
+  case (TyLam b k2 \<sigma>2)
+  have 1: "atom b \<sharp> \<Gamma>' @ BTyVar a k # \<Gamma>" using fresh_Cons fresh_append TyLam(2,4,5) by force
+  obtain \<sigma>'::\<tau> where P: "BTyVar b k2 # \<Gamma>' @ BTyVar a k # \<Gamma> \<turnstile> \<sigma>2 : \<sigma>'" "\<tau> = (\<forall> b : k2 . \<sigma>')" by (rule T_AbsT_Inv[OF TyLam.prems(1) 1 TyLam(1)])
+  then have 2: "BTyVar b k2 # \<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile> \<sigma>2[\<sigma>/a] : \<sigma>'[\<sigma>/a]" using TyLam(6)[of "BTyVar b k2 # \<Gamma>'"] TyLam(2,8) by force 
+  show ?case using Tm_TAbs[OF 2] TyLam(2,3) P(2) by simp
+next
+  case (Let x \<tau>1 e1 e2)
+  have 1: "atom x \<sharp> \<Gamma>' @ BTyVar a k # \<Gamma>" using fresh_Cons fresh_append Let(2,4,5) by force
+  have 2: "\<Gamma>' @ BTyVar a k # \<Gamma> \<turnstile> e1 : \<tau>1" "BVar x \<tau>1 # \<Gamma>' @ BTyVar a k # \<Gamma> \<turnstile> e2 : \<tau>" using T_Let_Inv[OF Let.prems(1) 1] by auto
+  have 3: "\<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile> e1[\<sigma>/a] : \<tau>1[\<sigma>/a]" by (rule Let(6)[OF 2(1) Let.prems(2)])
+  have 4: "BVar x \<tau>1[\<sigma>/a] # \<Gamma>'[\<sigma>/a] @ \<Gamma> \<turnstile> e2[\<sigma>/a] : \<tau>[\<sigma>/a]" using Let(7)[of "BVar x \<tau>1 # \<Gamma>'"] 2(2) Let.prems(2) by simp
+  show ?case using Tm_Let[OF 3 4] by simp
+qed
+lemmas type_substitution = type_substitution_context type_substitution_ty type_substitution_term
+
+lemma substitution: "\<lbrakk> \<Gamma>' @ BVar x \<sigma> # \<Gamma> \<turnstile> e : \<tau> ; \<Gamma> \<turnstile> e' : \<sigma> \<rbrakk> \<Longrightarrow> \<Gamma>' @ \<Gamma> \<turnstile> e[e'/x] : \<tau>"
+proof (nominal_induct e avoiding: \<tau> \<Gamma>' x \<Gamma> e' \<sigma> rule: term.strong_induct)
+  case (Var y)
+  then have P: "\<turnstile> \<Gamma>' @ BVar x \<sigma> # \<Gamma>" "BVar y \<tau> \<in> (\<Gamma>' @ BVar x \<sigma> # \<Gamma>)" by auto
+  have 1: "\<turnstile> \<Gamma>' @ \<Gamma>" by (rule strengthen(1)[OF P(1)])
+  show ?case
+  proof (cases "x = y")
+    case True
+    then have "\<tau> = \<sigma>" using isin_same(2) P by blast
+    then have "\<Gamma> \<turnstile> (Var y)[e'/x] : \<tau>" using Var(2) True by simp
+    then show ?thesis using weaken_tm[of "[]"] 1 by auto
+  next
+    case False
+    then have "BVar y \<tau> \<in> (\<Gamma>' @ \<Gamma>)" using isin_superset(2)[OF P(2,1)] by simp
+    then show ?thesis using Tm_Var[OF 1] False by simp
+  qed
+next
+  case (App e1 e2)
+  then obtain \<tau>1 where P: "\<Gamma>' @ BVar x \<sigma> # \<Gamma> \<turnstile> e1 : \<tau>1 \<rightarrow> \<tau>" "\<Gamma>' @ BVar x \<sigma> # \<Gamma> \<turnstile> e2 : \<tau>1" by auto
+  have 1: "\<Gamma>' @ \<Gamma> \<turnstile> e1[e'/x] : \<tau>1 \<rightarrow> \<tau>" by (rule App(1)[OF P(1) App(4)])
+  have 2: "\<Gamma>' @ \<Gamma> \<turnstile> e2[e'/x] : \<tau>1" by (rule App(2)[OF P(2) App(4)])
+  show ?case using Tm_App[OF 1 2] by simp
+next
+  case (TyApp e \<tau>1)
+  obtain a k \<sigma>' where P: "\<Gamma>' @ BVar x \<sigma> # \<Gamma> \<turnstile> e : \<forall> a:k. \<sigma>'" "\<Gamma>' @ BVar x \<sigma> # \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : k" "\<tau> = \<sigma>'[\<tau>1/a]" by (cases rule: Tm.cases[OF TyApp(2)]) auto
+  have 1: "\<Gamma>' @ \<Gamma> \<turnstile> e[e'/x] : \<forall> a : k . \<sigma>'" by (rule TyApp(1)[OF P(1) TyApp(3)])
+  have 2: "\<Gamma>' @ \<Gamma> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : k" by (rule strengthen(2)[OF P(2)])
+  show ?case using Tm_TApp[OF 1 2] P(3) by simp
+next
+  case Unit
+  then have 1: "\<tau> = TyUnit" by auto
+  have 2: "\<turnstile> \<Gamma>' @ \<Gamma>" by (rule strengthen(1)[OF context_valid(2)[OF Unit(1)]])
+  show ?case using Tm_Unit[OF 2] 1 by simp
+next
+  case (Lam y \<tau>1 e)
+  have 1: "atom y \<sharp> \<Gamma>' @ BVar x \<sigma> # \<Gamma>" using Lam(2-4) fresh_Cons fresh_append by force
+  obtain \<tau>2 where P: "BVar y \<tau>1 # \<Gamma>' @ BVar x \<sigma> # \<Gamma> \<turnstile> e : \<tau>2" "\<tau> = (\<tau>1 \<rightarrow> \<tau>2)" by (rule T_Abs_Inv[OF Lam.prems(1) 1])
+  have 2: "BVar y \<tau>1 # \<Gamma>' @ \<Gamma> \<turnstile> e[e'/x] : \<tau>2" using Lam(7)[of "BVar y \<tau>1 # \<Gamma>'"] P(1) Lam.prems(2) by simp
+  show ?case using Tm_Abs[OF 2] P(2) Lam(3,5) by simp
+next
+  case (TyLam a k e)
+  have 1: "atom a \<sharp> \<Gamma>' @ BVar x \<sigma> # \<Gamma>" using TyLam(2,4,6) fresh_Cons fresh_append by force
+  obtain \<sigma>' where P: "BTyVar a k # \<Gamma>' @ BVar x \<sigma> # \<Gamma> \<turnstile> e : \<sigma>'" "\<tau> = (\<forall> a : k . \<sigma>')" by (rule T_AbsT_Inv[OF TyLam.prems(1) 1 TyLam(1)])
+  have 2: "BTyVar a k # \<Gamma>' @ \<Gamma> \<turnstile> e[e'/x] : \<sigma>'" using TyLam(7)[of "BTyVar a k # \<Gamma>'"] TyLam.prems(2) P(1) by simp
+  show ?case using Tm_TAbs[OF 2] P(2) TyLam(5) by simp
+next
+  case (Let y \<tau>1 e1 e2)
+  have 1: "atom y \<sharp> \<Gamma>' @ BVar x \<sigma> # \<Gamma>" using Let(2-4,6) fresh_Cons fresh_append by force
+  have P: "\<Gamma>' @ BVar x \<sigma> # \<Gamma> \<turnstile> e1 : \<tau>1" "BVar y \<tau>1 # \<Gamma>' @ BVar x \<sigma> # \<Gamma> \<turnstile> e2 : \<tau>" using T_Let_Inv[OF Let.prems(1) 1] by auto
+  have 2: "\<Gamma>' @ \<Gamma> \<turnstile> e1[e'/x] : \<tau>1" by (rule Let(7)[OF P(1) Let.prems(2)])
+  have 3: "BVar y \<tau>1 # \<Gamma>' @ \<Gamma> \<turnstile> e2[e'/x] : \<tau>" using Let(8)[of "BVar y \<tau>1 # \<Gamma>'"] P(2) Let.prems(2) by simp
+  show ?case using Tm_Let[OF 2 3] Let(3,5) by simp
+qed
 
 end

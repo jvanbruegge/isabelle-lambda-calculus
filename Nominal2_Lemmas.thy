@@ -63,7 +63,7 @@ proof -
 qed
 
 lemma Abs_fresh_var:
-  fixes y ::"'a::at" and e ::"'b::fs"
+  fixes y::"'a::at" and e ::"'b::fs"
   obtains c::"'a" and e'::"'b" where "([[atom y]]lst. e = [[atom c]]lst. e') \<and> atom y \<sharp> [[atom c]]lst. e'"
 proof -
   obtain c::"'a" where "atom c \<sharp> (y, e)" using obtain_fresh by blast
