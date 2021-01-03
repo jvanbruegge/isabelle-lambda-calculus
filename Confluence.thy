@@ -1,4 +1,4 @@
-theory BetaEquivalence
+theory Confluence
   imports Semantics
 begin
 
