@@ -20,8 +20,8 @@ proof (nominal_induct e avoiding: \<Gamma> \<tau>1 \<tau>2 rule: term.strong_ind
   then show ?case using isin_split isin_same(2) by blast
 next
   case (TyApp e1 \<tau>)
-  obtain a1 k1 \<sigma>1 where 1: "\<Gamma> \<turnstile> e1 : \<forall> a1:k1. \<sigma>1" "\<tau>1 = \<sigma>1[\<tau>/a1]" by (cases rule: Tm.cases[OF TyApp(2)]) auto 
-  obtain a2 k2 \<sigma>2 where 2: "\<Gamma> \<turnstile> e1 : \<forall> a2:k2. \<sigma>2" "\<tau>2 = \<sigma>2[\<tau>/a2]" by (cases rule: Tm.cases[OF TyApp(3)]) auto 
+  obtain a1 k1 \<sigma>1 where 1: "\<Gamma> \<turnstile> e1 : \<forall> a1:k1. \<sigma>1" "\<tau>1 = \<sigma>1[\<tau>/a1]" by (cases rule: Tm.cases[OF TyApp(2)]) auto
+  obtain a2 k2 \<sigma>2 where 2: "\<Gamma> \<turnstile> e1 : \<forall> a2:k2. \<sigma>2" "\<tau>2 = \<sigma>2[\<tau>/a2]" by (cases rule: Tm.cases[OF TyApp(3)]) auto
   show ?case using TyApp(1)[OF 1(1) 2(1)] subst_type_same 1(2) 2(2) by simp
 next
   case (Lam x \<tau> e)
