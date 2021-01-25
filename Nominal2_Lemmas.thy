@@ -79,4 +79,7 @@ lemma Abs_rename_body:
   shows "(a \<leftrightarrow> b) \<bullet> e1 = e2"
   by (metis Abs1_eq_iff'(3) Nominal2_Base.swap_self assms flip_commute flip_def fresh_star_zero supp_perm_eq_test)
 
+lemma Projl_permute: "\<exists>y. f = Inl y \<Longrightarrow> p \<bullet> projl f = projl (p \<bullet> f)" by auto
+lemma Projr_permute: "\<exists>y. f = Inr y \<Longrightarrow> p \<bullet> projr f = projr (p \<bullet> f)" by auto
+
 end
