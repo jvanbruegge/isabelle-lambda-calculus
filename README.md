@@ -10,10 +10,11 @@ You can find the proof of type safety in [Soundness.thy](./Soundness.thy), the p
 
 ## Roadmap
 
--   [x] Start with a simply typed lambda calculus
--   [x] Add let bindings
--   [x] Use the Nominal2 framework to reason about alpha-equated terms
--   [x] Extend to System F (ie introduce polymorphic variables)
+-   [x] Start with a simply typed lambda calculus ([v1.0](https://github.com/jvanbruegge/isabelle-lambda-calculus/tree/v1.0))
+-   [x] Add let bindings ([v1.1](https://github.com/jvanbruegge/isabelle-lambda-calculus/tree/v1.0))
+-   [x] Use the Nominal2 framework to reason about alpha-equated terms ([v2.0](https://github.com/jvanbruegge/isabelle-lambda-calculus/tree/v2.0))
+-   [x] Extend to System F (ie introduce polymorphic variables) ([v3.0](https://github.com/jvanbruegge/isabelle-lambda-calculus/tree/v3.0))
+-   [x] Use a context validity judgement ([v3.1](https://github.com/jvanbruegge/isabelle-lambda-calculus/tree/v3.1))
 -   [ ] Add arbitrary user-defined datatypes
 -   [ ] Add `case` expressions
 -   [ ] Extend to System Fc (ie introduce type equality coercions)
