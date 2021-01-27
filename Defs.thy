@@ -1,5 +1,5 @@
 theory Defs
-  imports Syntax Nominal2_Lemmas
+  imports Syntax Nominal2_Lemmas "HOL-Library.Adhoc_Overloading"
 begin
 
 nominal_function isin :: "binder \<Rightarrow> \<Gamma> \<Rightarrow> bool" (infixr "\<in>" 80) where
@@ -40,18 +40,18 @@ nominal_function is_value :: "term => bool" where
 nominal_termination (eqvt) by lexicographic_order
 
 nominal_function (default "case_sum (\<lambda>x. Inl undefined) (\<lambda>x. Inr undefined)")
-      subst_term :: "term => term \<Rightarrow> var => term" ("_[_'/_]" [1000,0,0] 1000)
-  and subst_term_list :: "elist \<Rightarrow> term \<Rightarrow> var \<Rightarrow> elist" ("_[_'/_]" [1000,0,0] 1000) where
+      subst_term :: "term => term \<Rightarrow> var => term"
+  and subst_term_list :: "elist \<Rightarrow> term \<Rightarrow> var \<Rightarrow> elist" where
   "subst_term (Var y) e x = (if x = y then e else Var y)"
-| "subst_term (App e1 e2) e x = App e1[e/x] e2[e/x]"
-| "subst_term (TApp e1 \<tau>) e x = TApp e1[e/x] \<tau>"
-| "subst_term (Ctor D tys terms) e x = Ctor D tys terms[e/x]"
-| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (\<lambda> y:\<tau>. e2) e x = (\<lambda> y:\<tau>. e2[e/x])" 
-| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (\<Lambda> y:k. e2) e x = (\<Lambda> y:k. e2[e/x])"
-| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (Let y \<tau> e1 e2) e x = (Let y \<tau> e1[e/x] e2[e/x])"
+| "subst_term (App e1 e2) e x = App (subst_term e1 e x) (subst_term e2 e x)"
+| "subst_term (TApp e1 \<tau>) e x = TApp (subst_term e1 e x) \<tau>"
+| "subst_term (Ctor D tys terms) e x = Ctor D tys (subst_term_list terms e x)"
+| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (\<lambda> y:\<tau>. e2) e x = (\<lambda> y:\<tau>. subst_term e2 e x)" 
+| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (\<Lambda> y:k. e2) e x = (\<Lambda> y:k. subst_term e2 e x)"
+| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (Let y \<tau> e1 e2) e x = Let y \<tau> (subst_term e1 e x) (subst_term e2 e x)"
 
 | "subst_term_list ENil _ _ = ENil"
-| "subst_term_list (ECons y ys) e x = ECons y[e/x] ys[e/x]"
+| "subst_term_list (ECons y ys) e x = ECons (subst_term y e x) (subst_term_list ys e x)"
 proof goal_cases
   (* this is adapted and simplified from here: https://www.joachim-breitner.de/thesis/isa/Substitution.thy *)
   have eqvt_at_subst_term: "\<And>e y z . eqvt_at subst_term_subst_term_list_sumC (Inl (e, y, z)) \<Longrightarrow> eqvt_at (\<lambda>(a, b, c). subst_term a b c) (e, y, z)"
@@ -101,16 +101,16 @@ next
 nominal_termination (eqvt) by lexicographic_order
 
 nominal_function (default "case_sum (\<lambda>x. Inl undefined) (\<lambda>x. Inr undefined)")
-  subst_type :: "\<tau> \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> \<tau>" ("_[_'/_]" [1000,0,0] 1000)
-  and subst_type_list :: "tlist \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> tlist" ("_[_'/_]" [1000,0,0] 1000) where
+  subst_type :: "\<tau> \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> \<tau>"
+  and subst_type_list :: "tlist \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> tlist" where
   "subst_type (TyVar b) \<tau> a = (if a = b then \<tau> else TyVar b)"
-| "subst_type (TyData T tys) \<tau> a = TyData T tys[\<tau>/a]"
+| "subst_type (TyData T tys) \<tau> a = TyData T (subst_type_list tys \<tau> a)"
 | "subst_type TyArrow _ _ = TyArrow"
-| "subst_type (TyApp \<tau>1 \<tau>2) \<tau> a = TyApp \<tau>1[\<tau>/a] \<tau>2[\<tau>/a]"
-| "atom b \<sharp> (\<tau>, a) \<Longrightarrow> subst_type (\<forall> b:k. \<sigma>) \<tau> a = (\<forall> b:k. \<sigma>[\<tau>/a])"
+| "subst_type (TyApp \<tau>1 \<tau>2) \<tau> a = TyApp (subst_type \<tau>1 \<tau> a) (subst_type \<tau>2 \<tau> a)"
+| "atom b \<sharp> (\<tau>, a) \<Longrightarrow> subst_type (\<forall> b:k. \<sigma>) \<tau> a = (\<forall> b:k. subst_type \<sigma> \<tau> a)"
 
 | "subst_type_list TNil _ _ = TNil"
-| "subst_type_list (TCons t tys) \<tau> a = TCons t[\<tau>/a] tys[\<tau>/a]"
+| "subst_type_list (TCons t tys) \<tau> a = TCons (subst_type t \<tau> a) (subst_type_list tys \<tau> a)"
 proof goal_cases
   case (3 P x)
   then show ?case
@@ -151,18 +151,18 @@ qed (auto simp: eqvt_def subst_type_subst_type_list_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
 nominal_function (default "case_sum (\<lambda>x. Inl undefined) (\<lambda>x. Inr undefined)")
-  subst_term_type :: "term \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> term" ("_[_'/_]" [1000,0,0] 1000)
-  and subst_term_list_type :: "elist \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> elist" ("_[_'/_]" [1000,0,0] 1000) where
+  subst_term_type :: "term \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> term"
+  and subst_term_list_type :: "elist \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> elist" where
   "subst_term_type (Var x) _ _ = Var x"
-| "subst_term_type (Ctor D tys terms) \<tau> a = Ctor D tys[\<tau>/a] terms[\<tau>/a]"
-| "subst_term_type (App e1 e2) \<tau> a = App e1[\<tau>/a] e2[\<tau>/a]"
-| "subst_term_type (TApp e \<tau>2) \<tau> a = TApp e[\<tau>/a] \<tau>2[\<tau>/a]"
-| "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type (\<lambda> y:\<tau>'. e2) \<tau> a = (\<lambda> y:\<tau>'[\<tau>/a]. e2[\<tau>/a])"
-| "atom b \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type (\<Lambda> b:k. e2) \<tau> a = (\<Lambda> b:k. e2[\<tau>/a])"
-| "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type (Let y \<tau>' e1 e2) \<tau> a = Let y \<tau>'[\<tau>/a] e1[\<tau>/a] e2[\<tau>/a]"
+| "subst_term_type (Ctor D tys terms) \<tau> a = Ctor D (subst_type_list tys \<tau> a) (subst_term_list_type terms \<tau> a)"
+| "subst_term_type (App e1 e2) \<tau> a = App (subst_term_type e1 \<tau> a) (subst_term_type e2 \<tau> a)"
+| "subst_term_type (TApp e \<tau>2) \<tau> a = TApp (subst_term_type e \<tau> a) (subst_type \<tau>2 \<tau> a)"
+| "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type (\<lambda> y:\<tau>'. e2) \<tau> a = (\<lambda> y:(subst_type \<tau>' \<tau> a). subst_term_type e2 \<tau> a)"
+| "atom b \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type (\<Lambda> b:k. e2) \<tau> a = (\<Lambda> b:k. subst_term_type e2 \<tau> a)"
+| "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type (Let y \<tau>' e1 e2) \<tau> a = Let y (subst_type \<tau>' \<tau> a) (subst_term_type e1 \<tau> a) (subst_term_type e2 \<tau> a)"
 
 | "subst_term_list_type ENil _ _ = ENil"
-| "subst_term_list_type (ECons y ys) \<tau> a = ECons y[\<tau>/a] ys[\<tau>/a]"
+| "subst_term_list_type (ECons y ys) \<tau> a = ECons (subst_term_type y \<tau> a) (subst_term_list_type ys \<tau> a)"
 proof goal_cases
 (* this is adapted and simplified from here: https://www.joachim-breitner.de/thesis/isa/Substitution.thy *)
   have eqvt_at_subst_type_term: "\<And>e y z . eqvt_at subst_term_type_subst_term_list_type_sumC (Inl (e, y, z)) \<Longrightarrow> eqvt_at (\<lambda>(a, b, c). subst_term_type a b c) (e, y, z)"
@@ -198,7 +198,8 @@ proof goal_cases
   qed
 next
   case (34 y \<tau> a \<tau>2 e2 y' \<tau>' a' \<tau>2' e2')
-  have "(\<lambda>y:\<tau>2[\<tau>/a]. subst_term_type e2 \<tau> a) = (\<lambda>y':\<tau>2'[\<tau>'/a']. subst_term_type e2' \<tau>' a')" using Abs_sumC[OF 34(5,6) eqvt_at_subst_type_term[OF 34(1)] eqvt_at_subst_type_term[OF 34(2)]] 34(7) by fastforce
+  have "(\<lambda>y:(subst_type \<tau>2 \<tau> a). subst_term_type e2 \<tau> a) = (\<lambda>y':(subst_type \<tau>2' \<tau>' a'). subst_term_type e2' \<tau>' a')"
+    using Abs_sumC[OF 34(5,6) eqvt_at_subst_type_term[OF 34(1)] eqvt_at_subst_type_term[OF 34(2)]] 34(7) by fastforce
   then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
 next
   case (39 b \<tau> a k e2 b' \<tau>' a' k' e2')
@@ -206,15 +207,15 @@ next
   then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
 next
   case (43 y \<tau> a \<tau>2 e1 e2 y' \<tau>' a' \<tau>2' e1' e2')
-  have "Let y \<tau>2[\<tau>/a] (subst_term_type e1 \<tau> a) (subst_term_type e2 \<tau> a) = Let y' \<tau>2'[\<tau>'/a'] (subst_term_type e1' \<tau>' a') (subst_term_type e2' \<tau>' a')"
+  have "Let y (subst_type \<tau>2 \<tau> a) (subst_term_type e1 \<tau> a) (subst_term_type e2 \<tau> a) = Let y' (subst_type \<tau>2' \<tau>' a') (subst_term_type e1' \<tau>' a') (subst_term_type e2' \<tau>' a')"
     using Abs_sumC[OF 43(9,10) eqvt_at_subst_type_term[OF 43(2)] eqvt_at_subst_type_term[OF 43(4)]] 43(11) by fastforce
   then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
 } qed (auto simp: eqvt_def subst_term_type_subst_term_list_type_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
-nominal_function subst_context :: "\<Gamma> \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> \<Gamma>" ("_[_'/_]" [1000,0,0] 1000) where
+nominal_function subst_context :: "\<Gamma> \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> \<Gamma>" where
   "subst_context [] _ _ = []"
-| "subst_context (BVar x \<tau> # \<Gamma>) \<tau>' a = BVar x \<tau>[\<tau>'/a] # subst_context \<Gamma> \<tau>' a"
+| "subst_context (BVar x \<tau> # \<Gamma>) \<tau>' a = BVar x (subst_type \<tau> \<tau>' a) # subst_context \<Gamma> \<tau>' a"
 | "subst_context (BTyVar b k # \<Gamma>) \<tau>' a = (if a = b then subst_context \<Gamma> \<tau>' a else  BTyVar b k # subst_context \<Gamma> \<tau>' a)"
 proof goal_cases
   case (3 P x)
@@ -226,5 +227,11 @@ proof goal_cases
   qed auto
 qed (auto simp: eqvt_def subst_context_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
+
+no_notation inverse_divide (infixl "'/" 70)
+consts subst :: "'a \<Rightarrow> 'b \<Rightarrow> 'c \<Rightarrow> 'a" ("_[_'/_]" [1000,0,0] 1000)
+
+adhoc_overloading
+  subst subst_term subst_term_list subst_type subst_type_list subst_term_type subst_term_list_type subst_context
 
 end
