@@ -43,7 +43,7 @@ proof (nominal_induct e and es avoiding: c x e' rule: term_elist.strong_induct)
     by (metis Let.hyps(1) Let.hyps(2) flip_fresh_fresh fresh_at_base(2) no_vars_in_ty term_elist.perm_simps(7))
 qed (auto simp: flip_fresh_fresh fresh_at_base)
 
-lemma subst_type_var_name: 
+lemma subst_type_var_name:
   shows "atom c \<sharp> \<sigma> \<Longrightarrow> subst_type \<sigma> \<tau> a = subst_type ((a \<leftrightarrow> c) \<bullet> \<sigma>) \<tau> c"
     and "atom c \<sharp> tys \<Longrightarrow> subst_type_list tys \<tau> a = subst_type_list ((a \<leftrightarrow> c) \<bullet> tys) \<tau> c"
 proof (nominal_induct \<sigma> and tys avoiding: c a \<tau> rule: \<tau>_tlist.strong_induct)
@@ -54,7 +54,7 @@ proof (nominal_induct \<sigma> and tys avoiding: c a \<tau> rule: \<tau>_tlist.s
   finally show ?case by (metis TyForall.hyps(1) TyForall.hyps(2) \<tau>_tlist.perm_simps(5) flip_fresh_fresh fresh_at_base(2) no_tyvars_in_kinds)
 qed (auto simp: fresh_at_base)
 
-lemma subst_term_type_var_name: 
+lemma subst_term_type_var_name:
   shows "atom c \<sharp> e \<Longrightarrow> subst_term_type e \<tau> a = subst_term_type ((a \<leftrightarrow> c) \<bullet> e) \<tau> c"
     and "atom c \<sharp> es \<Longrightarrow> subst_term_list_type es \<tau> a = subst_term_list_type ((a \<leftrightarrow> c) \<bullet> es) \<tau> c"
 proof (nominal_induct e and es avoiding: c a \<tau> rule: term_elist.strong_induct)
@@ -117,7 +117,7 @@ lemma fresh_not_isin_var: "atom x \<sharp> \<Gamma> \<Longrightarrow> \<not>isin
   by (metis (mono_tags, lifting) binder.fresh(1) binder.strong_exhaust fresh_Cons fresh_at_base(2) isin.simps(2) isin.simps(3))
 
 (* atom x \<sharp> t \<Longrightarrow> subst t' x t = t *)
-lemma fresh_subst_term_same: 
+lemma fresh_subst_term_same:
   shows "atom x \<sharp> e \<Longrightarrow> subst_term e e' x = e"
   and "atom x \<sharp> es \<Longrightarrow> subst_term_list es e' x = es"
 proof (induction e e' x and es e' x rule: subst_term_subst_term_list.induct)
@@ -127,7 +127,7 @@ next
   case (7 y e x \<tau> e1 e2)
   then show ?case using fresh_PairD(2) fresh_at_base(2) by fastforce
 qed auto
-lemma fresh_subst_type_same: 
+lemma fresh_subst_type_same:
   shows "atom a \<sharp> \<sigma> \<Longrightarrow> subst_type \<sigma> \<tau> a = \<sigma>"
   and "atom a \<sharp> tys \<Longrightarrow> subst_type_list tys \<tau> a = tys"
 proof (induction \<sigma> \<tau> a and tys \<tau> a rule: subst_type_subst_type_list.induct)

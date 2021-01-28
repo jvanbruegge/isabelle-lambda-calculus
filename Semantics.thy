@@ -12,9 +12,13 @@ inductive Step :: "term \<Rightarrow> term \<Rightarrow> bool" ("_ \<longrightar
 
 | ST_SubstI: "Let x \<tau> e1 e2 \<longrightarrow> e2[e1/x]"
 
-| ST_BetaTI: "TyApp (\<Lambda> a : k . e) \<tau> \<longrightarrow> e[\<tau>/a]"
+| ST_BetaTI: "TApp (\<Lambda> a : k . e) \<tau> \<longrightarrow> e[\<tau>/a]"
 
-| ST_AppTI: "e1 \<longrightarrow> e2 \<Longrightarrow> TyApp e1 \<tau> \<longrightarrow> TyApp e2 \<tau>"
+| ST_DataApp: "is_value e \<Longrightarrow> App (Ctor D tys vals) e \<longrightarrow> Ctor D tys (ECons e vals)"
+
+| ST_DataTApp: "TApp (Ctor D tys vals) \<tau> \<longrightarrow> Ctor D (TCons \<tau> tys) vals"
+
+| ST_AppTI: "e1 \<longrightarrow> e2 \<Longrightarrow> TApp e1 \<tau> \<longrightarrow> TApp e2 \<tau>"
 equivariance Step
 nominal_inductive Step .
 
@@ -29,7 +33,7 @@ definition stuck :: "term \<Rightarrow> bool" where
   "stuck e \<equiv> \<not>is_value e \<and> beta_nf e"
 
 lemma value_beta_nf: "is_value v \<Longrightarrow> beta_nf v"
-  apply (cases v rule: term.exhaust)
+  apply (cases v rule: term_elist.exhaust(1))
   using Step.cases beta_nf_def by fastforce+
 
 lemma Step_deterministic: "\<lbrakk> e \<longrightarrow> e1 ; e \<longrightarrow> e2 \<rbrakk> \<Longrightarrow> e1 = e2"
@@ -70,6 +74,12 @@ next
   from ST_AppTI(3) show ?case
     apply cases
     using ST_AppTI value_beta_nf beta_nf_def by auto
+next
+  case (ST_DataApp e D tys vals)
+  then show ?case using beta_nf_def value_beta_nf by (cases rule: Step.cases[OF ST_DataApp(2)]) auto
+next
+  case (ST_DataTApp D tys vals \<tau>)
+  then show ?case using beta_nf_def value_beta_nf by (cases rule: Step.cases) auto
 qed
 
 end

@@ -46,7 +46,7 @@ nominal_function (default "case_sum (\<lambda>x. Inl undefined) (\<lambda>x. Inr
 | "subst_term (App e1 e2) e x = App (subst_term e1 e x) (subst_term e2 e x)"
 | "subst_term (TApp e1 \<tau>) e x = TApp (subst_term e1 e x) \<tau>"
 | "subst_term (Ctor D tys terms) e x = Ctor D tys (subst_term_list terms e x)"
-| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (\<lambda> y:\<tau>. e2) e x = (\<lambda> y:\<tau>. subst_term e2 e x)" 
+| "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (\<lambda> y:\<tau>. e2) e x = (\<lambda> y:\<tau>. subst_term e2 e x)"
 | "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (\<Lambda> y:k. e2) e x = (\<Lambda> y:k. subst_term e2 e x)"
 | "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (Let y \<tau> e1 e2) e x = Let y \<tau> (subst_term e1 e x) (subst_term e2 e x)"
 
