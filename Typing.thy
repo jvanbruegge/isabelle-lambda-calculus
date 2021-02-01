@@ -37,19 +37,19 @@ inductive Ax :: "\<Delta> \<Rightarrow> bool" ("\<turnstile> _")
 | Ty_Forall: "\<lbrakk> BTyVar a k # \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<sigma> : \<star> \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y (\<forall>a : k. \<sigma>) : \<star>"
 
 method solve_Ax_Ctx_Ty = (
-  rule Ty_Arrow, print_fact Ty_Arrow
+  rule Ty_Arrow
   | match conclusion in
-    "\<turnstile> []" \<Rightarrow> \<open>print_fact Ax_Empty, rule Ax_Empty\<close>
-    \<bar> "\<turnstile> AxData _ _ # _" \<Rightarrow> \<open>print_fact Ax_Data, rule Ax_Data\<close>
-    \<bar> "\<turnstile> AxCtor _ _ # _" \<Rightarrow> \<open>print_fact Ax_Ctor, rule Ax_Ctor\<close>
-    \<bar> "_ \<turnstile> BTyVar _ _ # _" \<Rightarrow> \<open>print_fact Ctx_TyVar, rule Ctx_TyVar\<close>
-    \<bar> "(_::\<Delta>) \<turnstile> []" \<Rightarrow> \<open>print_fact Ctx_Empty, rule Ctx_Empty\<close>
-    \<bar> "_ , _ \<turnstile>\<^sub>t\<^sub>y TyForall _ _ _ : _" \<Rightarrow> \<open>print_fact Ty_Forall, rule Ty_Forall\<close>
-    \<bar> "_ , _ \<turnstile>\<^sub>t\<^sub>y TyData _ (TCons _ _) : _" \<Rightarrow> \<open>print_fact Ty_DataApp, rule Ty_DataApp\<close>
-    \<bar> "_ , _ \<turnstile>\<^sub>t\<^sub>y TyData _ TNil : _" \<Rightarrow> \<open>print_fact Ty_Data, rule Ty_Data\<close>
-    \<bar> "_ , _ \<turnstile>\<^sub>t\<^sub>y TyApp _ _ : _" \<Rightarrow> \<open>print_fact Ty_App, rule Ty_App\<close>
-    \<bar> "_ , _ \<turnstile>\<^sub>t\<^sub>y TyVar _ : _" \<Rightarrow> \<open>print_fact Ty_Var, rule Ty_Var\<close>
-    \<bar> "_ \<sharp> []" \<Rightarrow> \<open>print_fact fresh_Nil, rule fresh_Nil\<close>
+    "\<turnstile> []" \<Rightarrow> \<open>rule Ax_Empty\<close>
+    \<bar> "\<turnstile> AxData _ _ # _" \<Rightarrow> \<open>rule Ax_Data\<close>
+    \<bar> "\<turnstile> AxCtor _ _ # _" \<Rightarrow> \<open>rule Ax_Ctor\<close>
+    \<bar> "_ \<turnstile> BTyVar _ _ # _" \<Rightarrow> \<open>rule Ctx_TyVar\<close>
+    \<bar> "(_::\<Delta>) \<turnstile> []" \<Rightarrow> \<open>rule Ctx_Empty\<close>
+    \<bar> "_ , _ \<turnstile>\<^sub>t\<^sub>y TyForall _ _ _ : _" \<Rightarrow> \<open>rule Ty_Forall\<close>
+    \<bar> "_ , _ \<turnstile>\<^sub>t\<^sub>y TyData _ (TCons _ _) : _" \<Rightarrow> \<open>rule Ty_DataApp\<close>
+    \<bar> "_ , _ \<turnstile>\<^sub>t\<^sub>y TyData _ TNil : _" \<Rightarrow> \<open>rule Ty_Data\<close>
+    \<bar> "_ , _ \<turnstile>\<^sub>t\<^sub>y TyApp _ _ : _" \<Rightarrow> \<open>rule Ty_App\<close>
+    \<bar> "_ , _ \<turnstile>\<^sub>t\<^sub>y TyVar _ : _" \<Rightarrow> \<open>rule Ty_Var\<close>
+    \<bar> "_ \<sharp> []" \<Rightarrow> \<open>rule fresh_Nil\<close>
   | (simp add: fresh_Nil fresh_Cons)
   | (simp add: fresh_at_base Abs_ctor_name_inject Abs_data_name_inject)
 )+
@@ -60,12 +60,15 @@ abbreviation mkCtor :: "nat \<Rightarrow> ctor_name" where
 abbreviation mkData :: "nat \<Rightarrow> data_name" where
   "mkData n \<equiv> Abs_data_name (Atom (Sort ''Syntax.data_name'' []) n)"
 
-(* data Maybe a = Nothing | Just a *)
+(* data Maybe a = Nothing | Just a ; data Bool = True | False *)
 lemma "\<turnstile> [
   AxCtor (mkCtor 2) (\<forall> a:\<star> . TyVar a \<rightarrow> TyData (mkData 0) (TCons (TyVar a) TNil)),
+  AxCtor (mkCtor 4) (TyData (mkData 3) TNil),
+  AxCtor (mkCtor 5) (TyData (mkData 3) TNil),
   AxCtor (mkCtor 1) (\<forall> a:\<star> . TyData (mkData 0) (TCons (TyVar a) TNil) ),
+  AxData (mkData 3) \<star>,
   AxData (mkData 0) (\<star> \<rightarrow> \<star>)
-]" (* 0: Maybe, 1: Nothing, 2: Just *)
+]" (* 0: Maybe, 1: Nothing, 2: Just, 3: Bool, 4: True, 5: False *)
   by solve_Ax_Ctx_Ty
 
 equivariance Ax
@@ -81,11 +84,11 @@ inductive Tm :: "\<Gamma> \<Rightarrow> \<Delta> \<Rightarrow> term \<Rightarrow
 
 | Tm_TApp: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e : \<forall> a:k. \<sigma> ; \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : k \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> TApp e \<tau> : \<sigma>[\<tau>/a]"
 
-| Tm_DataCon: "\<lbrakk> \<Delta> \<turnstile> \<Gamma> ; AxCtor D \<tau> \<in> set \<Delta> \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Ctor D TNil ENil : \<tau>"
+| Tm_Ctor: "\<lbrakk> \<Delta> \<turnstile> \<Gamma> ; AxCtor D \<tau> \<in> set \<Delta> \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Ctor D TNil ENil : \<tau>"
 
-| Tm_DataConApp: "\<Gamma> , \<Delta> \<turnstile> App (Ctor D tys vals) e : \<tau> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Ctor D tys (ECons e vals) : \<tau>"
+| Tm_CtorApp: "\<Gamma> , \<Delta> \<turnstile> App (Ctor D tys vals) e : \<tau> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Ctor D tys (ECons e vals) : \<tau>"
 
-| Tm_DataConTApp: "\<Gamma> , \<Delta> \<turnstile> TApp (Ctor D tys vals) \<sigma> : \<tau> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Ctor D (TCons \<sigma> tys) vals : \<tau>"
+| Tm_CtorTApp: "\<Gamma> , \<Delta> \<turnstile> TApp (Ctor D tys ENil) \<sigma> : \<tau> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Ctor D (TCons \<sigma> tys) ENil : \<tau>"
 
 | Tm_Let: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e1 : \<tau>1 ; BVar x \<tau>1 # \<Gamma> , \<Delta> \<turnstile> e2 : \<tau>2 \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Let x \<tau>1 e1 e2 : \<tau>2"
 
@@ -106,14 +109,17 @@ inductive_cases CtxE[elim]:
 inductive_cases TyE[elim!]:
   "\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyVar a : k"
   "\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyApp \<tau>1 \<tau>2 : \<kappa>2"
-  "\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyData D tys : k"
+  "\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyData D TNil : k"
+  "\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyData D (TCons \<tau> tys) : k"
   "\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyArrow : k"
 
 inductive_cases TmE[elim!]:
   "\<Gamma> , \<Delta> \<turnstile> (Var x) : \<tau>"
   "\<Gamma> , \<Delta> \<turnstile> App e1 e2 : \<tau>2"
   "\<Gamma> , \<Delta> \<turnstile> TApp e \<tau> : \<tau>2"
-  "\<Gamma> , \<Delta> \<turnstile> Ctor D tys vals : \<tau>"
+  "\<Gamma> , \<Delta> \<turnstile> Ctor D TNil ENil : \<tau>"
+  "\<Gamma> , \<Delta> \<turnstile> Ctor D (TCons \<sigma> tys) ENil : \<tau>"
+  "\<Gamma> , \<Delta> \<turnstile> Ctor D tys (ECons e vals) : \<tau>"
 
 (* Split induction principles *)
 lemma Ax_induct[consumes 1, case_names Empty Data Ctor]:

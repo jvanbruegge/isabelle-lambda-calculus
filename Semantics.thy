@@ -14,9 +14,9 @@ inductive Step :: "term \<Rightarrow> term \<Rightarrow> bool" ("_ \<longrightar
 
 | ST_BetaTI: "TApp (\<Lambda> a : k . e) \<tau> \<longrightarrow> e[\<tau>/a]"
 
-| ST_DataApp: "is_value e \<Longrightarrow> App (Ctor D tys vals) e \<longrightarrow> Ctor D tys (ECons e vals)"
+| ST_CtorApp: "App (Ctor D tys vals) e \<longrightarrow> Ctor D tys (ECons e vals)"
 
-| ST_DataTApp: "TApp (Ctor D tys vals) \<tau> \<longrightarrow> Ctor D (TCons \<tau> tys) vals"
+| ST_CtorTApp: "TApp (Ctor D tys vals) \<tau> \<longrightarrow> Ctor D (TCons \<tau> tys) vals"
 
 | ST_AppTI: "e1 \<longrightarrow> e2 \<Longrightarrow> TApp e1 \<tau> \<longrightarrow> TApp e2 \<tau>"
 equivariance Step
@@ -75,10 +75,10 @@ next
     apply cases
     using ST_AppTI value_beta_nf beta_nf_def by auto
 next
-  case (ST_DataApp e D tys vals)
-  then show ?case using beta_nf_def value_beta_nf by (cases rule: Step.cases[OF ST_DataApp(2)]) auto
+  case (ST_CtorApp e D tys vals)
+  then show ?case using beta_nf_def value_beta_nf by (cases rule: Step.cases) auto
 next
-  case (ST_DataTApp D tys vals \<tau>)
+  case (ST_CtorTApp D tys vals \<tau>)
   then show ?case using beta_nf_def value_beta_nf by (cases rule: Step.cases) auto
 qed
 
