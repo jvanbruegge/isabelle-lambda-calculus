@@ -30,7 +30,7 @@ inductive Ax :: "\<Delta> \<Rightarrow> bool" ("\<turnstile> _")
 
 | Ty_Data: "\<lbrakk> \<Delta> \<turnstile> \<Gamma> ; AxData T k \<in> set \<Delta> \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyData T TNil : k"
 
-| Ty_DataApp: "\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyApp (TyData T tys) \<tau>2 : k \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyData T (TCons \<tau>2 tys) : k"
+| Ty_DataApp: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyData T tys : k1 \<rightarrow> k2 ; \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau>2 : k1 \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyData T (TCons \<tau>2 tys) : k2"
 
 | Ty_Arrow: "\<Delta> \<turnstile> \<Gamma> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyArrow : \<star> \<rightarrow> \<star> \<rightarrow> \<star>"
 
@@ -86,9 +86,9 @@ inductive Tm :: "\<Gamma> \<Rightarrow> \<Delta> \<Rightarrow> term \<Rightarrow
 
 | Tm_Ctor: "\<lbrakk> \<Delta> \<turnstile> \<Gamma> ; AxCtor D \<tau> \<in> set \<Delta> \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Ctor D TNil ENil : \<tau>"
 
-| Tm_CtorApp: "\<Gamma> , \<Delta> \<turnstile> App (Ctor D tys vals) e : \<tau> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Ctor D tys (ECons e vals) : \<tau>"
+| Tm_CtorApp: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> Ctor D tys vals : \<tau>1 \<rightarrow> \<tau>2 ; \<Gamma> , \<Delta> \<turnstile> e : \<tau>1 \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Ctor D tys (ECons e vals) : \<tau>2"
 
-| Tm_CtorTApp: "\<Gamma> , \<Delta> \<turnstile> TApp (Ctor D tys ENil) \<sigma> : \<tau> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Ctor D (TCons \<sigma> tys) ENil : \<tau>"
+| Tm_CtorTApp: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> Ctor D tys ENil : \<forall> a:k. \<sigma> ; \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : k \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Ctor D (TCons \<tau> tys) ENil : \<sigma>[\<tau>/a]"
 
 | Tm_Let: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e1 : \<tau>1 ; BVar x \<tau>1 # \<Gamma> , \<Delta> \<turnstile> e2 : \<tau>2 \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Let x \<tau>1 e1 e2 : \<tau>2"
 
@@ -96,7 +96,7 @@ equivariance Tm
 
 lemmas Ax_intros = Ax_Ctx_Ty.intros(1-3)
 lemmas Ctx_intros = Ax_Ctx_Ty.intros(4-6)
-lemmas Ty_intros = Ax_Ctx_Ty.intros(7-11)
+lemmas Ty_intros = Ax_Ctx_Ty.intros(7-12)
 
 inductive_cases AxE[elim]:
   "\<turnstile> AxData T k # \<Delta>"
@@ -139,78 +139,17 @@ lemma Ctx_induct[consumes 1, case_names Empty TyVar Var]:
 shows "P \<Delta> \<Gamma>"
   using Ax_Ctx_Ty.inducts(2)[OF assms(1), of "\<lambda>x. True" "\<lambda>a b c d. True" P] assms(2-4) by simp
 
-thm Ax_Ctx_Ty.inducts(3)
-
 lemma Ty_induct[consumes 1, case_names Var App Data DataApp Arrow Forall]:
   fixes P::"\<Gamma> \<Rightarrow> \<Delta> \<Rightarrow> \<tau> \<Rightarrow> \<kappa> \<Rightarrow> bool"
   assumes "\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<kappa>"
   and Var: "\<And>\<Gamma> \<Delta> a k. \<lbrakk> \<Delta> \<turnstile> \<Gamma> ; BTyVar a k \<in> \<Gamma> \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (TyVar a) k"
   and App: "\<And>\<Gamma> \<Delta> \<tau>1 \<tau>2 \<kappa>1 \<kappa>2. \<lbrakk> \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<kappa>1 \<rightarrow> \<kappa>2 ; P \<Gamma> \<Delta> \<tau>1 (KArrow \<kappa>1 \<kappa>2) ; \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau>2 : \<kappa>1 ; P \<Gamma> \<Delta> \<tau>2 \<kappa>1 \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (TyApp \<tau>1 \<tau>2) \<kappa>2"
   and Data: "\<And>\<Delta> \<Gamma> T k. \<lbrakk> \<Delta> \<turnstile> \<Gamma> ; AxData T k \<in> set \<Delta> \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (TyData T TNil) k"
-  and DataApp: "\<And>\<Gamma> \<Delta> T tys \<tau>2 k. \<lbrakk> \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyApp (TyData T tys) \<tau>2 : k ; P \<Gamma> \<Delta> (TyApp (TyData T tys) \<tau>2) k \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (TyData T (TCons \<tau>2 tys)) k"
+  and DataApp: "\<And>\<Gamma> \<Delta> T tys \<tau>2 k1 k2. \<lbrakk> \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyData T tys : k1 \<rightarrow> k2 ; P \<Gamma> \<Delta> (TyData T tys) (k1 \<rightarrow> k2) ; \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau>2 : k1 ; P \<Gamma> \<Delta> \<tau>2 k1 \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (TyData T (TCons \<tau>2 tys)) k2"
   and Arrow: "\<And>\<Gamma> \<Delta>. \<Delta> \<turnstile> \<Gamma> \<Longrightarrow> P \<Gamma> \<Delta> TyArrow (\<star> \<rightarrow> \<star> \<rightarrow> \<star>)"
   and Forall: "\<And>\<Gamma> \<Delta> a k \<sigma>. \<lbrakk> BTyVar a k # \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<sigma> : \<star> ; P (BTyVar a k # \<Gamma>) \<Delta> \<sigma> \<star> \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (\<forall> a:k. \<sigma>) \<star>"
 shows "P \<Gamma> \<Delta> \<tau> \<kappa>"
   using Ax_Ctx_Ty.inducts(3)[OF assms(1), of "\<lambda>a. True" P "\<lambda>a b. True"] assms(2-7) by simp
-
-lemma Ctx_Ty_induct_split[case_names Ctx_Empty Ctx_TyVar Ctx_Var Ty_Var Ty_App Ty_Data Ty_DataApp Ty_Arrow Ty_Forall]:
-  fixes P::"\<Delta> \<Rightarrow> \<Gamma> \<Rightarrow> bool" and Q::"\<Gamma> \<Rightarrow> \<Delta> \<Rightarrow> \<tau> \<Rightarrow> \<kappa> \<Rightarrow> bool"
-  assumes "\<And>\<Delta>. P \<Delta> []"
-  and "\<And>\<Gamma>' \<Delta> b k2. \<lbrakk> \<Delta> \<turnstile> \<Gamma>' @ \<Gamma> ; P \<Delta> \<Gamma>' ; atom b \<sharp> (\<Gamma>' @  \<Gamma>) \<rbrakk> \<Longrightarrow> P \<Delta> (BTyVar b k2 # \<Gamma>')"
-  and "\<And>\<Gamma>' \<Delta> \<tau> x. \<lbrakk> \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; Q \<Gamma>' \<Delta> \<tau> \<star> ; atom x \<sharp> (\<Gamma>' @  \<Gamma>) \<rbrakk> \<Longrightarrow> P \<Delta> (BVar x \<tau> # \<Gamma>')"
-  and "\<And>\<Gamma>' \<Delta> b k2. \<lbrakk> \<Delta> \<turnstile> \<Gamma>' @ \<Gamma> ; P \<Delta> \<Gamma>' ; BTyVar b k2 \<in> (\<Gamma>' @  \<Gamma>) \<rbrakk> \<Longrightarrow> Q \<Gamma>' \<Delta> (TyVar b) k2"
-  and "\<And>\<Gamma>' \<Delta> \<tau>1 \<kappa>1 \<kappa>2 \<tau>2. \<lbrakk> \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<kappa>1 \<rightarrow> \<kappa>2 ; Q \<Gamma>' \<Delta> \<tau>1 (\<kappa>1 \<rightarrow> \<kappa>2) ; \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau>2 : \<kappa>1 ; Q \<Gamma>' \<Delta> \<tau>2 \<kappa>1 \<rbrakk> \<Longrightarrow> Q \<Gamma>' \<Delta> (TyApp \<tau>1 \<tau>2) \<kappa>2"
-  and "\<And>\<Gamma>' \<Delta> T k. \<lbrakk> \<Delta> \<turnstile> \<Gamma>' @ \<Gamma> ; AxData T k \<in> set \<Delta> \<rbrakk> \<Longrightarrow> Q \<Gamma>' \<Delta> (TyData T TNil) k"
-  and "\<And>\<Gamma>' \<Delta> T tys \<tau>2 k. \<lbrakk> \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyApp (TyData T tys) \<tau>2 : k ; Q \<Gamma>' \<Delta> (TyApp (TyData T tys) \<tau>2) k \<rbrakk> \<Longrightarrow> Q \<Gamma>' \<Delta> (TyData T (TCons \<tau>2 tys)) k"
-  and "\<And>\<Gamma>' \<Delta>. \<lbrakk> \<Delta> \<turnstile> (\<Gamma>' @ \<Gamma>) ; P \<Delta> \<Gamma>' \<rbrakk> \<Longrightarrow> Q \<Gamma>' \<Delta> TyArrow (\<star> \<rightarrow> \<star> \<rightarrow> \<star>)"
-  and "\<And>\<Gamma>' \<Delta> b k2 \<sigma>. \<lbrakk> BTyVar b k2 # \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<sigma> : \<star> ; Q (BTyVar b k2 # \<Gamma>') \<Delta> \<sigma> \<star> \<rbrakk> \<Longrightarrow> Q \<Gamma>' \<Delta> (\<forall> b : k2 . \<sigma>) \<star>"
-shows "\<Delta> \<turnstile> \<Gamma>' @ \<Gamma> \<longrightarrow> P \<Delta> \<Gamma>'"
-  and "\<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : k2 \<longrightarrow> Q \<Gamma>' \<Delta> \<tau> k2"
-proof -
-  let ?\<Gamma> = "\<Gamma>' @ \<Gamma>"
-  let ?P = "\<lambda>\<Delta> x. \<forall>\<Gamma>2. (x = \<Gamma>2 @ \<Gamma>) \<longrightarrow> (P \<Delta> \<Gamma>2)"
-  let ?Q = "\<lambda>x \<Delta> y z. \<forall>\<Gamma>2. (x = \<Gamma>2 @ \<Gamma>) \<longrightarrow> (Q \<Gamma>2 \<Delta> y z)"
-
-  have "(\<turnstile> \<Delta> \<longrightarrow> True) \<and> (\<Delta> \<turnstile> ?\<Gamma> \<longrightarrow> ?P \<Delta> ?\<Gamma>) \<and> (?\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : k2 \<longrightarrow> ?Q ?\<Gamma> \<Delta> \<tau> k2)"
-  proof (cases rule: Ax_Ctx_Ty.induct[of "\<lambda>x. True" "?Q" "?P"])
-    case (Ctx_TyVar \<Delta> \<Gamma>' a k)
-    then show ?case
-    proof auto
-      fix \<Gamma>2
-      assume a: "BTyVar a k # \<Gamma>' = \<Gamma>2 @ \<Gamma>"
-      then show "P \<Delta> \<Gamma>2"
-      proof (cases "\<Gamma>2 = []")
-        case False
-        then obtain G where "\<Gamma>' = G @ \<Gamma>" by (meson Cons_eq_append_conv a)
-        then show ?thesis using assms(2) Ctx_TyVar a by auto
-      qed (simp add: assms(1))
-    qed
-  next
-    case (Ctx_Var \<Gamma>' \<Delta> \<tau> x)
-    then show ?case
-    proof auto
-      fix \<Gamma>2
-      assume a: "BVar x \<tau> # \<Gamma>' = \<Gamma>2 @ \<Gamma>"
-      then show "P \<Delta> \<Gamma>2"
-      proof (cases "\<Gamma>2 = []")
-        case False
-        then obtain G where "\<Gamma>' = G @ \<Gamma>" by (meson Cons_eq_append_conv a)
-        then show ?thesis using assms(3) Ctx_Var a by auto
-      qed (simp add: assms(1))
-    qed
-  next
-    case (Ty_DataApp \<Gamma>' \<Delta> T tys \<tau>2 k)
-    show ?case
-    proof auto
-      fix \<Gamma>2
-      assume a: "\<Gamma>' = \<Gamma>2 @ \<Gamma>"
-      then have 1: "\<Gamma>2 @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyApp (TyData T tys) \<tau>2 : k" using Ty_DataApp(1) by simp
-      show "Q \<Gamma>2 \<Delta> (TyData T (TCons \<tau>2 tys)) k" using assms(7)[OF 1] a Ty_DataApp(2) by blast
-    qed
-  qed (auto simp: assms(1,4-9))
-
-  then show "\<Delta> \<turnstile> \<Gamma>' @ \<Gamma> \<longrightarrow> P \<Delta> \<Gamma>'" and "\<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : k2 \<longrightarrow> Q \<Gamma>' \<Delta> \<tau> k2" by simp_all
-qed
 
 (* axiom validity *)
 lemma axioms_valid_aux:
@@ -228,6 +167,79 @@ lemma axioms_valid_ty: "\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> 
 lemma axioms_valid_tm: "\<Gamma> , \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> \<turnstile> \<Delta>"
   by (induction \<Gamma> \<Delta> e \<tau> rule: Tm.induct) (auto simp: axioms_valid_context axioms_valid_ty)
 lemmas axioms_valid = axioms_valid_context axioms_valid_ty axioms_valid_tm
+
+lemma Ctx_Ty_induct_split[case_names Ctx_Empty Ctx_TyVar Ctx_Var Ty_Var Ty_App Ty_Data Ty_DataApp Ty_Arrow Ty_Forall]:
+  fixes P::"\<Delta> \<Rightarrow> \<Gamma> \<Rightarrow> bool" and Q::"\<Gamma> \<Rightarrow> \<Delta> \<Rightarrow> \<tau> \<Rightarrow> \<kappa> \<Rightarrow> bool"
+  assumes "\<And>\<Delta>. \<Delta> \<turnstile> \<Gamma> \<Longrightarrow> P \<Delta> []"
+  and "\<And>\<Gamma>' \<Delta> b k2. \<lbrakk> \<Delta> \<turnstile> \<Gamma>' @ \<Gamma> ; P \<Delta> \<Gamma>' ; atom b \<sharp> (\<Gamma>' @  \<Gamma>) \<rbrakk> \<Longrightarrow> P \<Delta> (BTyVar b k2 # \<Gamma>')"
+  and "\<And>\<Gamma>' \<Delta> \<tau> x. \<lbrakk> \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; Q \<Gamma>' \<Delta> \<tau> \<star> ; atom x \<sharp> (\<Gamma>' @  \<Gamma>) \<rbrakk> \<Longrightarrow> P \<Delta> (BVar x \<tau> # \<Gamma>')"
+  and "\<And>\<Gamma>' \<Delta> b k2. \<lbrakk> \<Delta> \<turnstile> \<Gamma>' @ \<Gamma> ; P \<Delta> \<Gamma>' ; BTyVar b k2 \<in> (\<Gamma>' @  \<Gamma>) \<rbrakk> \<Longrightarrow> Q \<Gamma>' \<Delta> (TyVar b) k2"
+  and "\<And>\<Gamma>' \<Delta> \<tau>1 \<kappa>1 \<kappa>2 \<tau>2. \<lbrakk> \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau>1 : \<kappa>1 \<rightarrow> \<kappa>2 ; Q \<Gamma>' \<Delta> \<tau>1 (\<kappa>1 \<rightarrow> \<kappa>2) ; \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau>2 : \<kappa>1 ; Q \<Gamma>' \<Delta> \<tau>2 \<kappa>1 \<rbrakk> \<Longrightarrow> Q \<Gamma>' \<Delta> (TyApp \<tau>1 \<tau>2) \<kappa>2"
+  and "\<And>\<Gamma>' \<Delta> T k. \<lbrakk> \<Delta> \<turnstile> \<Gamma>' @ \<Gamma> ; P \<Delta> \<Gamma>' ; AxData T k \<in> set \<Delta> \<rbrakk> \<Longrightarrow> Q \<Gamma>' \<Delta> (TyData T TNil) k"
+  and "\<And>\<Gamma>' \<Delta> T tys \<tau>2 k1 k2. \<lbrakk> \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y TyData T tys : k1 \<rightarrow> k2 ; Q \<Gamma>' \<Delta> (TyData T tys) (k1 \<rightarrow> k2) ; \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau>2 : k1 ; Q \<Gamma>' \<Delta> \<tau>2 k1 \<rbrakk> \<Longrightarrow> Q \<Gamma>' \<Delta> (TyData T (TCons \<tau>2 tys)) k2"
+  and "\<And>\<Gamma>' \<Delta>. \<lbrakk> \<Delta> \<turnstile> (\<Gamma>' @ \<Gamma>) ; P \<Delta> \<Gamma>' \<rbrakk> \<Longrightarrow> Q \<Gamma>' \<Delta> TyArrow (\<star> \<rightarrow> \<star> \<rightarrow> \<star>)"
+  and "\<And>\<Gamma>' \<Delta> b k2 \<sigma>. \<lbrakk> BTyVar b k2 # \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<sigma> : \<star> ; Q (BTyVar b k2 # \<Gamma>') \<Delta> \<sigma> \<star> \<rbrakk> \<Longrightarrow> Q \<Gamma>' \<Delta> (\<forall> b : k2 . \<sigma>) \<star>"
+shows "\<Delta> \<turnstile> \<Gamma>' @ \<Gamma> \<longrightarrow> P \<Delta> \<Gamma>'"
+  and "\<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : k2 \<longrightarrow> Q \<Gamma>' \<Delta> \<tau> k2"
+proof -
+  let ?\<Gamma> = "\<Gamma>' @ \<Gamma>"
+  let ?P = "\<lambda>\<Delta> x. \<forall>\<Gamma>2. (x = \<Gamma>2 @ \<Gamma>) \<longrightarrow> (P \<Delta> \<Gamma>2)"
+  let ?Q = "\<lambda>x \<Delta> y z. \<forall>\<Gamma>2. (x = \<Gamma>2 @ \<Gamma>) \<longrightarrow> (Q \<Gamma>2 \<Delta> y z)"
+
+  have "(\<turnstile> \<Delta> \<longrightarrow> True) \<and> (\<Delta> \<turnstile> ?\<Gamma> \<longrightarrow> ?P \<Delta> ?\<Gamma>) \<and> (?\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : k2 \<longrightarrow> ?Q ?\<Gamma> \<Delta> \<tau> k2)"
+  proof (cases rule: Ax_Ctx_Ty.induct[of "\<lambda>x. True" "?Q" "?P"])
+    case (Ctx_Empty \<Delta>)
+    then show ?case
+    proof (auto, goal_cases)
+      case 1
+      then show ?case using assms(1) Ax_Ctx_Ty.Ctx_Empty[OF Ctx_Empty(1)] by simp
+    qed
+  next
+    case (Ctx_TyVar \<Delta> \<Gamma>' a k)
+    then show ?case
+    proof auto
+      fix \<Gamma>2
+      assume a: "BTyVar a k # \<Gamma>' = \<Gamma>2 @ \<Gamma>"
+      then show "P \<Delta> \<Gamma>2"
+      proof (cases "\<Gamma>2 = []")
+        case True
+        then have "\<Delta> \<turnstile> \<Gamma>" using Ax_Ctx_Ty.Ctx_TyVar[OF Ctx_TyVar(1,3)] a by auto
+        then show ?thesis using assms(1) True by simp
+      next
+        case False
+        then obtain G where "\<Gamma>' = G @ \<Gamma>" by (meson Cons_eq_append_conv a)
+        then show ?thesis using assms(2) Ctx_TyVar a by auto
+      qed
+    qed
+  next
+    case (Ctx_Var \<Gamma>' \<Delta> \<tau> x)
+    then show ?case
+    proof auto
+      fix \<Gamma>2
+      assume a: "BVar x \<tau> # \<Gamma>' = \<Gamma>2 @ \<Gamma>"
+      then show "P \<Delta> \<Gamma>2"
+      proof (cases "\<Gamma>2 = []")
+        case True
+        then have "\<Delta> \<turnstile> \<Gamma>" using Ax_Ctx_Ty.Ctx_Var[OF Ctx_Var(1,3)] a by simp
+        then show ?thesis using True assms(1) by simp
+      next
+        case False
+        then obtain G where "\<Gamma>' = G @ \<Gamma>" by (meson Cons_eq_append_conv a)
+        then show ?thesis using assms(3) Ctx_Var a by auto
+      qed
+    qed
+  next
+    case (Ty_DataApp \<Gamma>' \<Delta> T tys k1 k2 \<tau>2)
+    show ?case
+    proof auto
+      fix \<Gamma>2
+      assume a: "\<Gamma>' = \<Gamma>2 @ \<Gamma>"
+      show "Q \<Gamma>2 \<Delta> (TyData T (TCons \<tau>2 tys)) k2" using assms(7) a Ty_DataApp by simp
+    qed
+  qed (auto simp: assms(1,4-9))
+
+  then show "\<Delta> \<turnstile> \<Gamma>' @ \<Gamma> \<longrightarrow> P \<Delta> \<Gamma>'" and "\<Gamma>' @ \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : k2 \<longrightarrow> Q \<Gamma>' \<Delta> \<tau> k2" by simp_all
+qed
 
 (* context validity *)
 lemma context_valid_ty: "\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<kappa> \<Longrightarrow> \<Delta> \<turnstile> \<Gamma>"
