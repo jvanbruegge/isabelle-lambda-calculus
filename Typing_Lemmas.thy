@@ -160,6 +160,12 @@ proof (induction \<Delta>)
   qed
 qed simp
 
+lemma axioms_split_valid: "\<turnstile> \<Delta>' @ \<Delta> \<Longrightarrow> \<turnstile> \<Delta>"
+proof (induction \<Delta>')
+  case (Cons a \<Delta>')
+  then show ?case using axioms_valid(2) by (cases a rule: axiom.exhaust) auto
+qed simp
+
 lemma isin_subset:
   fixes \<Gamma>::"\<Gamma>"
   assumes "\<Delta> \<turnstile> \<Gamma>' @ \<Gamma>"
@@ -251,6 +257,9 @@ proof (induction \<Gamma>)
     then show ?thesis by (metis Cons.IH Cons.prems(2) Cons_eq_appendI context_cons_valid)
   qed blast
 qed auto
+
+lemma axioms_regularity: "\<turnstile> \<Delta>' @ AxCtor D \<tau> # \<Delta> \<Longrightarrow> [] , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star>"
+  using Ax_Ctor axioms_split_valid by (induction \<Delta>) blast+
 
 lemma context_regularity: "\<Delta> \<turnstile> \<Gamma>' @ BVar x \<tau> # \<Gamma> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star>"
   using Ctx_Var context_split_valid by (induction \<Gamma>) blast+
