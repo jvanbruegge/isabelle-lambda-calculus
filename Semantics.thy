@@ -16,7 +16,7 @@ inductive Step :: "term \<Rightarrow> term \<Rightarrow> bool" ("_ \<longrightar
 
 | ST_CtorApp: "App (Ctor D tys vals) e \<longrightarrow> Ctor D tys (ECons e vals)"
 
-| ST_CtorTApp: "TApp (Ctor D tys vals) \<tau> \<longrightarrow> Ctor D (TCons \<tau> tys) vals"
+| ST_CtorTApp: "TApp (Ctor D tys ENil) \<tau> \<longrightarrow> Ctor D (TCons \<tau> tys) ENil"
 
 | ST_AppTI: "e1 \<longrightarrow> e2 \<Longrightarrow> TApp e1 \<tau> \<longrightarrow> TApp e2 \<tau>"
 equivariance Step

@@ -445,7 +445,7 @@ next
 qed
 lemmas type_substitution = type_substitution_context type_substitution_ty type_substitution_term(1)
 
-lemma substitution:
+lemma substitution':
   shows "\<lbrakk> \<Gamma>' @ BVar x \<sigma> # \<Gamma> , \<Delta> \<turnstile> e : \<tau> ; \<Gamma> , \<Delta> \<turnstile> e' : \<sigma> \<rbrakk> \<Longrightarrow> \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile> e[e'/x] : \<tau>"
   and "\<lbrakk> \<Gamma>' @ BVar x \<sigma> # \<Gamma> , \<Delta> \<turnstile> Ctor D tys vals : \<tau> ; \<Gamma> , \<Delta> \<turnstile> e' : \<sigma> \<rbrakk> \<Longrightarrow> \<Gamma>' @ \<Gamma> , \<Delta> \<turnstile> Ctor D tys vals[e'/x] : \<tau>"
 proof (nominal_induct e and vals avoiding: \<tau> \<Gamma>' x \<Gamma> e' \<sigma> D tys rule: term_elist.strong_induct)
@@ -507,23 +507,28 @@ next
   have 2: "\<Gamma>' @ \<Gamma> , \<Delta> \<turnstile> x1[e'/x] : \<tau>1" by (rule ECons(1)[OF P(2) ECons(4)])
   then show ?case using Tm_CtorApp[OF 1 2] by simp
 qed
+lemmas substitution = substitution'(1)
 
 theorem preservation:
   fixes e e'::"term"
-  assumes "[] \<turnstile> e : \<tau>" "e \<longrightarrow> e'"
-  shows "[] \<turnstile> e' : \<tau>"
-using assms beta_nf_def value_beta_nf proof (nominal_induct "[]::\<Gamma>" e \<tau> arbitrary: e' rule: Tm.strong_induct)
-  case (Tm_App e1 \<tau>1 \<tau>2 e2)
+  assumes "[] , \<Delta> \<turnstile> e : \<tau>" "e \<longrightarrow> e'"
+  shows "[] , \<Delta> \<turnstile> e' : \<tau>"
+using assms beta_nf_def value_beta_nf proof (nominal_induct "[]::\<Gamma>" \<Delta> e \<tau> arbitrary: e' rule: Tm.strong_induct)
+  case (Tm_App \<Delta> e1 \<tau>1 \<tau>2 e2)
   from Tm_App(5) show ?case
   proof cases
     case (ST_BetaI x \<tau> e)
-    then show ?thesis by (metis Tm_App.hyps(1,3) T_Abs_Inv \<tau>.eq_iff(3) append_Nil fresh_Nil substitution)
+    then have "[BVar x \<tau>1] , \<Delta> \<turnstile> e : \<tau>2 \<and> \<tau> = \<tau>1" using T_Abs_Inv Tm_App(1) fresh_Nil by fastforce
+    then show ?thesis using substitution[OF _ Tm_App(3)] ST_BetaI(2) by simp
   next
     case (ST_AppI e2')
     then show ?thesis using Tm_App.hyps(2,3,6) Tm.Tm_App value_beta_nf by blast
+  next
+    case (ST_CtorApp D tys vals)
+    then show ?thesis using Tm_App(1,3) Tm_CtorApp by blast
   qed
 next
-  case (Tm_TApp e a k \<sigma> \<tau>)
+  case (Tm_TApp \<Delta> e a k \<sigma> \<tau>)
   from Tm_TApp(4) show ?case
   proof cases
     case (ST_BetaTI b k2 e2)
@@ -532,20 +537,22 @@ next
     obtain \<sigma>2 where c1: "(\<forall> a:k. \<sigma>) = (\<forall> c:k. \<sigma>2)" using Abs_lst_rename[OF c(4)] by auto
     have same: "k = k2" using Tm_TApp(1) forall_ty_lam ST_BetaTI(1) by fastforce
     obtain e2' where c2: "(\<Lambda> b:k2. e2) = (\<Lambda> c:k. e2')" using Abs_lst_rename[OF c(3)] same by auto
-    have 1: "[] \<turnstile> (\<Lambda> c:k. e2') : \<forall> c:k. \<sigma>2" using Tm_TApp(1) ST_BetaTI(1) c2 c1 by simp
-    have 2: "[BTyVar c k] \<turnstile> e2' : \<sigma>2"
+    have 1: "[] , \<Delta> \<turnstile> (\<Lambda> c:k. e2') : \<forall> c:k. \<sigma>2" using Tm_TApp(1) ST_BetaTI(1) c2 c1 by simp
+    have 2: "[BTyVar c k] , \<Delta> \<turnstile> e2' : \<sigma>2"
     proof (cases rule: Tm.cases[OF 1])
-      case (4 d _ _ e \<sigma>)
-      have x1: "(d \<leftrightarrow> c) \<bullet> e = e2'" using Abs_rename_body[of d e c e2'] 4(2) by simp
-      have x2: "(d \<leftrightarrow> c) \<bullet> \<sigma> = \<sigma>2" using Abs_rename_body[of d \<sigma> c \<sigma>2] 4(3) by simp
-      show ?thesis
-        by (metis "1" Abs1_eq_iff(3) T_AbsT_Inv \<tau>.eq_iff(5) fresh_Nil fresh_in_context_ty typing_regularity)
+      case (4 d _ _ _ e \<sigma>)
+      have x1: "(d \<leftrightarrow> c) \<bullet> e = e2'" using Abs_rename_body[of d e c e2'] 4(3) by simp
+      have x2: "(d \<leftrightarrow> c) \<bullet> \<sigma> = \<sigma>2" using Abs_rename_body[of d \<sigma> c \<sigma>2] 4(4) by simp
+      show ?thesis by (metis "1" Abs1_eq_iff(3) T_AbsT_Inv \<tau>_tlist.eq_iff(5) fresh_Nil fresh_in_context_ty typing_regularity)
     qed auto
     then show ?thesis
-      by (metis Tm_TApp.hyps(3) \<tau>.eq_iff(5) append_Nil c1 c2 local.ST_BetaTI(2) subst_context.simps(1) subst_term_type_same subst_type_same term.eq_iff(6) type_substitution(3))
+      by (metis Tm_TApp.hyps(3) \<tau>_tlist.eq_iff(5) append_Nil c1 c2 local.ST_BetaTI(2) subst_context.simps(1) subst_term_type_same subst_type_same term_elist.eq_iff(6) type_substitution(3))
   next
     case (ST_AppTI e2)
     then show ?thesis using Tm_TApp(2,3) Tm.Tm_TApp beta_nf_def value_beta_nf by blast
+  next
+    case (ST_CtorTApp D tys)
+    then show ?thesis using Tm_TApp(1,3) Tm_CtorTApp by blast
   qed
 next
   case (Tm_Let e1 \<tau>1 x e2 \<tau>2)
@@ -557,10 +564,10 @@ next
   qed
 qed auto
 
-lemma multi_preservation: "\<lbrakk> e \<longrightarrow>* e' ; [] \<turnstile> e : \<tau> \<rbrakk> \<Longrightarrow> [] \<turnstile> e' : \<tau>"
+lemma multi_preservation: "\<lbrakk> e \<longrightarrow>* e' ; [] , \<Delta> \<turnstile> e : \<tau> \<rbrakk> \<Longrightarrow> [] , \<Delta> \<turnstile> e' : \<tau>"
   by (induction e e' rule: Steps.induct) (auto simp: preservation)
 
-corollary soundness: "\<lbrakk> [] \<turnstile> e : \<tau> ; e \<longrightarrow>* e' \<rbrakk> \<Longrightarrow> \<not>(stuck e')"
+corollary soundness: "\<lbrakk> [] , \<Delta> \<turnstile> e : \<tau> ; e \<longrightarrow>* e' \<rbrakk> \<Longrightarrow> \<not>(stuck e')"
   unfolding stuck_def beta_nf_def
   using progress multi_preservation by blast
 
