@@ -2,50 +2,39 @@ theory Soundness
   imports Typing Semantics Typing_Lemmas
 begin
 
-no_notation Set.member ("(_/ \<in> _)" [51, 51] 50)
 no_notation Set.member  ("(_/ : _)" [51, 51] 50)
 
 declare term.fv_defs[simp]
 declare \<tau>.fv_defs[simp]
 
-theorem progress: "[] \<turnstile> e : \<tau> \<Longrightarrow> is_value e \<or> (\<exists>e'. e \<longrightarrow> e')"
-proof (induction "[] :: \<Gamma>" e \<tau> rule: Tm.induct)
-  case (Tm_App e1 \<tau>1 \<tau>2 e2)
-  note IH1 = Tm_App(2)
-  note IH2 = Tm_App(4)
-
-  from IH1 show ?case
+theorem progress: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e : \<tau> ; \<nexists>x \<sigma>. BVar x \<sigma> \<in> \<Gamma> \<rbrakk> \<Longrightarrow> is_value e \<or> (\<exists>e'. e \<longrightarrow> e')"
+proof (induction \<Gamma> \<Delta> e \<tau> rule: Tm.induct)
+  case (Tm_App \<Gamma> \<Delta> e1 \<tau>1 \<tau>2 e2)
+  from Tm_App(3)[OF Tm_App(5)] show ?case
   proof (elim disjE)
     assume "is_value e1"
-    from IH2 show ?thesis
-    proof (elim disjE)
-      assume "is_value e2"
-      from \<open>is_value e1\<close> Tm_App(1) have "\<exists>x e. e1 = (\<lambda>x:\<tau>1. e)" by (simp add: fun_ty_lam)
-      then have "\<exists>e'. Step (App e1 e2) e'" using \<open>is_value e2\<close> ST_BetaI by blast
-      then show ?thesis by simp
-    next
-      assume "\<exists>e2'. Step e2 e2'"
-      then show ?thesis using ST_BetaI Tm_App.hyps(1) \<open>is_value e1\<close> fun_ty_lam by blast
-    qed
+    then show ?thesis using ST_Beta Tm_App(1) fun_ty_val is_value.simps(4) by blast
   next
     assume "\<exists>e1'. Step e1 e1'"
     then obtain e1' where "Step e1 e1'" by blast
-    then have "Step (App e1 e2) (App e1' e2)" by (rule ST_AppI)
+    then have "Step (App e1 e2) (App e1' e2)" by (rule ST_App)
     then show ?thesis by blast
   qed
 next
   case (Tm_Let e1 \<tau>1 x e2 \<tau>2)
-  then show ?case using ST_SubstI by blast
+  then show ?case using ST_Let by blast
 next
-  case (Tm_TApp e a k \<sigma> \<tau>)
-  from Tm_TApp(2) show ?case
+  case (Tm_TAbs a k \<Gamma> \<Delta> e \<sigma>)
+  then show ?case using ST_TAbs by fastforce
+next
+  case (Tm_TApp \<Gamma> \<Delta> e a k \<sigma> \<tau>)
+  from Tm_TApp(3)[OF Tm_TApp(4)] show ?case
   proof (elim disjE)
     assume "is_value e"
-    then obtain b k e1 where "e = (\<Lambda> b : k . e1)" using Tm_TApp.hyps(1) forall_ty_lam by blast
-    then show ?thesis using Step.ST_BetaTI Tm_TApp by blast
+    then show ?thesis by (metis ST_TBeta Tm_TApp.hyps(1) forall_ty_val head_ctor.simps(5) head_ctor_is_value is_value.simps(3))
   next
     assume "\<exists>e'. Step e e'"
-    then show ?thesis using ST_AppTI by fast
+    then show ?thesis using ST_TApp by fast
   qed
 qed auto
 
