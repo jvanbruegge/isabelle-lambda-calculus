@@ -27,34 +27,39 @@ proof goal_cases
 qed (auto simp: eqvt_def isin_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
-nominal_function head_ctor :: "term \<Rightarrow> bool"
-  and is_value :: "term => bool" where
+nominal_function head_ctor :: "term \<Rightarrow> bool" where
   "head_ctor (Var _) = False"
 | "head_ctor (Lam _ _ _) = False"
 | "head_ctor (TyLam _ _ _) = False"
-| "head_ctor (App e1 e2) = (head_ctor e1 \<and> is_value e2)"
+| "head_ctor (App e1 e2) = head_ctor e1"
 | "head_ctor (TApp e _) = head_ctor e"
 | "head_ctor (Ctor _) = True"
 | "head_ctor (Let _ _ _ _) = False"
+proof goal_cases
+  case (3 P x)
+  then show ?case by (cases x rule: term.exhaust)
+qed (auto simp: eqvt_def head_ctor_graph_aux_def)
+nominal_termination (eqvt) by lexicographic_order
 
-| "is_value (Var x) = False"
+nominal_function is_value :: "term => bool" where
+  "is_value (Var x) = False"
 | "is_value (\<lambda> x : \<tau> . e) = True"
-| "is_value (\<Lambda> a : k . e) = True"
-| "is_value (App e1 e2) = (head_ctor e1 \<and> is_value e2)"
+| "is_value (\<Lambda> a : k . e) = is_value e"
+| "is_value (App e1 e2) = head_ctor e1"
 | "is_value (TApp e \<tau>) = head_ctor e"
 | "is_value (Ctor _) = True"
 | "is_value (Let x \<tau> e1 e2) = False"
 proof goal_cases
   case (3 P x)
-  then show ?case
-  proof (cases x)
-    case (Inl a)
-    then show ?thesis using 3(1-7) by (cases a rule: term.exhaust) auto
-  next
-    case (Inr b)
-    then show ?thesis using 3(8-14) by (cases b rule: term.exhaust) auto
-  qed
-qed (auto simp: eqvt_def head_ctor_is_value_graph_aux_def)
+  then show ?case by (cases x rule: term.exhaust)
+next
+  case (17 a k e a' k' e')
+  obtain c::tyvar where c: "atom c \<sharp> (a, e, a', e')" by (rule obtain_fresh)
+  have 1: "is_value_sumC e' = (a' \<leftrightarrow> c) \<bullet> is_value_sumC e'" using permute_boolE permute_boolI by blast
+  have 2: "is_value_sumC e = (a \<leftrightarrow> c) \<bullet> is_value_sumC e" using permute_boolE permute_boolI by blast
+  from c have "(a \<leftrightarrow> c) \<bullet> e = (a' \<leftrightarrow> c) \<bullet> e'" using 17(5) by simp
+  then show ?case using 1 2 17(1,2) eqvt_at_def by metis
+qed (auto simp: eqvt_def is_value_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
 nominal_function subst_term :: "term => term \<Rightarrow> var => term" where

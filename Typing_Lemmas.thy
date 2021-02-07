@@ -4,6 +4,9 @@ begin
 
 no_notation Set.member  ("(_/ : _)" [51, 51] 50)
 
+lemma fun_ty_val: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e : \<tau>1 \<rightarrow> \<tau>2 ; is_value e \<rbrakk> \<Longrightarrow> (\<exists>x e'. e = (\<lambda>x:\<tau>1. e')) \<or> head_ctor e"
+  by (induction \<Gamma> \<Delta> e "\<tau>1 \<rightarrow> \<tau>2" rule: Tm.induct) auto
+
 lemma context_cons_valid[elim]: "(\<Delta>::\<Delta>) \<turnstile> bndr # \<Gamma> \<Longrightarrow> (\<Delta> \<turnstile> \<Gamma> \<Longrightarrow> P) \<Longrightarrow> P"
   by (cases rule: Ctx.cases) (auto simp: context_valid(1))
 
