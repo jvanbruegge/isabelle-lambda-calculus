@@ -12,9 +12,9 @@ inductive Step :: "term \<Rightarrow> term \<Rightarrow> bool" ("_ \<longrightar
 
 | ST_SubstI: "Let x \<tau> e1 e2 \<longrightarrow> e2[e1/x]"
 
-| ST_BetaTI: "TyApp (\<Lambda> a : k . e) \<tau> \<longrightarrow> e[\<tau>/a]"
+| ST_BetaTI: "TApp (\<Lambda> a : k . e) \<tau> \<longrightarrow> e[\<tau>/a]"
 
-| ST_AppTI: "e1 \<longrightarrow> e2 \<Longrightarrow> TyApp e1 \<tau> \<longrightarrow> TyApp e2 \<tau>"
+| ST_AppTI: "e1 \<longrightarrow> e2 \<Longrightarrow> TApp e1 \<tau> \<longrightarrow> TApp e2 \<tau>"
 equivariance Step
 nominal_inductive Step .
 
@@ -29,8 +29,32 @@ definition stuck :: "term \<Rightarrow> bool" where
   "stuck e \<equiv> \<not>is_value e \<and> beta_nf e"
 
 lemma value_beta_nf: "is_value v \<Longrightarrow> beta_nf v"
-  apply (cases v rule: term.exhaust)
-  using Step.cases beta_nf_def by fastforce+
+proof (induction v rule: term.induct)
+  case (App e1 e2)
+  show ?case
+  proof (rule ccontr)
+    assume "\<not>beta_nf (App e1 e2)"
+    then obtain e' where "App e1 e2 \<longrightarrow> e'" using beta_nf_def by blast
+    then show "False" using App head_ctor_is_value beta_nf_def by cases auto
+  qed
+next
+  case (TApp e \<tau>)
+  show ?case
+  proof (rule ccontr)
+    assume "\<not>beta_nf (TApp e \<tau>)"
+    then obtain e' where "TApp e \<tau> \<longrightarrow> e'" using beta_nf_def by blast
+    then show "False" using TApp head_ctor_is_value beta_nf_def by cases auto
+  qed
+next
+  case (Ctor D)
+  then show ?case using Step.cases beta_nf_def by fastforce
+next
+  case (Lam x \<tau> e)
+  then show ?case using Step.cases beta_nf_def by fastforce
+next
+  case (TyLam a k e)
+  then show ?case using Step.cases beta_nf_def by fastforce
+qed auto
 
 lemma Step_deterministic: "\<lbrakk> e \<longrightarrow> e1 ; e \<longrightarrow> e2 \<rbrakk> \<Longrightarrow> e1 = e2"
 proof (induction e e1 arbitrary: e2 rule: Step.induct)

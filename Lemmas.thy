@@ -134,4 +134,7 @@ lemmas subst_subst = subst_subst_term subst_subst_type subst_subst_term_type sub
 lemma fv_supp_subset: "fv_\<tau> \<tau> \<subseteq> supp \<tau>"
   by (induction \<tau> rule: \<tau>.induct) (auto simp: \<tau>.supp \<tau>.fv_defs)
 
+lemma head_ctor_is_value: "head_ctor e \<Longrightarrow> is_value e"
+  by (induction e rule: term.induct) auto
+
 end
