@@ -356,59 +356,86 @@ next
 qed
 
 theorem preservation:
-  fixes e e'::"term"
-  assumes "[] \<turnstile> e : \<tau>" "e \<longrightarrow> e'"
-  shows "[] \<turnstile> e' : \<tau>"
-using assms beta_nf_def value_beta_nf proof (nominal_induct "[]::\<Gamma>" e \<tau> arbitrary: e' rule: Tm.strong_induct)
-  case (Tm_App e1 \<tau>1 \<tau>2 e2)
+  fixes e e'::"term" and \<Gamma>::\<Gamma>
+  assumes "\<Gamma> , \<Delta> \<turnstile> e : \<tau>" "e \<longrightarrow> e'" "\<nexists>x \<tau>. BVar x \<tau> \<in> \<Gamma>"
+  shows "\<Gamma> , \<Delta> \<turnstile> e' : \<tau>"
+using assms beta_nf_def value_beta_nf proof (nominal_induct \<Gamma> \<Delta> e \<tau> arbitrary: e' rule: Tm.strong_induct)
+  case (Tm_App \<Gamma> \<Delta> e1 \<tau>1 \<tau>2 e2)
   from Tm_App(5) show ?case
   proof cases
-    case (ST_BetaI x \<tau> e)
-    then show ?thesis by (metis Tm_App.hyps(1,3) T_Abs_Inv \<tau>.eq_iff(3) append_Nil fresh_Nil substitution)
+    case (ST_Beta x \<tau> e)
+    then have "\<tau>1 = \<tau>" using Tm_App(1) fun_ty_val by fastforce
+    obtain x' e2' where P: "BVar x' \<tau>1 # \<Gamma> , \<Delta> \<turnstile> e2' : \<tau>2" "(\<lambda>x:\<tau>1. e) = (\<lambda>x':\<tau>1. e2')" "atom x' \<sharp> (x, e)" using T_Abs_Inv_2 Tm_App(1) ST_Beta(1) by (metis \<tau>.eq_iff(4))
+    have 1: "\<Gamma> , \<Delta> \<turnstile> e2'[e2/x'] : \<tau>2" using substitution[of "[]"] Tm_App(3) P(1) by simp
+    have "e2'[e2/x'] = e[e2/x]" using subst_same(1)[of x e x' e2'] P(2) by simp
+    then show ?thesis using ST_Beta(2) 1 by argo
   next
-    case (ST_AppI e2')
-    then show ?thesis using Tm_App.hyps(2,3,6) Tm.Tm_App value_beta_nf by blast
+    case (ST_App e2')
+    then show ?thesis using Tm.Tm_App Tm_App(2,3,6) beta_nf_def value_beta_nf by blast
   qed
 next
-  case (Tm_TApp e a k \<sigma> \<tau>)
+  case (Tm_TAbs a k \<Gamma> \<Delta> e \<sigma>)
+  from Tm_TAbs(3) show ?case
+  proof cases
+    case (ST_TAbs e2 e2' b)
+    obtain c::tyvar where "atom c \<sharp> (a, e, b, e2, e', e2', \<sigma>, \<Gamma>)" by (rule obtain_fresh)
+    then have c: "atom c \<sharp> a"  "atom c \<sharp> e" "atom c \<sharp> b" "atom c \<sharp> e2" "atom c \<sharp> e'" "atom c \<sharp> e2'" "atom c \<sharp> \<sigma>" "atom c \<sharp> \<Gamma>" by auto
+    then obtain e3 where 1: "[[atom b]]lst. e2 = [[atom c]]lst. e3" by (metis Abs_lst_rename)
+    then have 2: "e3 = (b \<leftrightarrow> c) \<bullet> e2" using Abs_rename_body by blast
+    from 1 have 3: "e = (c \<leftrightarrow> a) \<bullet> e3" using ST_TAbs(1) Abs_rename_body[of c e3 a e] by argo
+    from ST_TAbs(3) have "e3 \<longrightarrow> (b \<leftrightarrow> c) \<bullet> e2'" using 2 Step.eqvt by blast
+    then have 4: "e \<longrightarrow> (c \<leftrightarrow> a) \<bullet> (b \<leftrightarrow> c) \<bullet> e2'" using 3 Step.eqvt by blast
+    then have 5: "BTyVar a k # \<Gamma> , \<Delta> \<turnstile> (c \<leftrightarrow> a) \<bullet> (b \<leftrightarrow> c) \<bullet> e2' : \<sigma>" using Tm_TAbs(2,4) beta_nf_def value_beta_nf by simp
+    have "BTyVar c k # \<Gamma> , \<Delta> \<turnstile> (b \<leftrightarrow> c) \<bullet> e2' : (a \<leftrightarrow> c) \<bullet> \<sigma>" using Tm_eqvt_tyvar[OF 5 c(8)] flip_commute permute_flip_cancel by simp
+    then have 6: "\<Gamma> , \<Delta> \<turnstile> \<Lambda> c : k . (b \<leftrightarrow> c) \<bullet> e2' : \<forall> c : k . (a \<leftrightarrow> c) \<bullet> \<sigma>" by (rule Tm.Tm_TAbs)
+    have 7: "(\<Lambda> c : k . (b \<leftrightarrow> c) \<bullet> e2') = (\<Lambda> b : k . e2')" using Abs_lst_rename c(6) by fastforce
+    have 8: "(\<forall> c : k . (a \<leftrightarrow> c) \<bullet> \<sigma>) = (\<forall> a : k . \<sigma>)" using Abs_lst_rename c(7) by fastforce
+    show ?thesis using 6 7 8 ST_TAbs(2) by argo
+  qed
+next
+  case (Tm_TApp \<Gamma> \<Delta> e a k \<sigma> \<tau>)
   from Tm_TApp(4) show ?case
   proof cases
-    case (ST_BetaTI b k2 e2)
-    obtain c::tyvar where "atom c \<sharp> (a, b, e2, \<sigma>)" using obtain_fresh by blast
-    then have c: "atom c \<sharp> a" "atom c \<sharp> b" "atom c \<sharp> e2" "atom c \<sharp> \<sigma>" by auto
+    case (ST_TBeta e2 b k2)
+    obtain c::tyvar where "atom c \<sharp> (a, b, e2, \<sigma>, \<Gamma>)" using obtain_fresh by blast
+    then have c: "atom c \<sharp> a" "atom c \<sharp> b" "atom c \<sharp> e2" "atom c \<sharp> \<sigma>" "atom c \<sharp> \<Gamma>" by auto
     obtain \<sigma>2 where c1: "(\<forall> a:k. \<sigma>) = (\<forall> c:k. \<sigma>2)" using Abs_lst_rename[OF c(4)] by auto
-    have same: "k = k2" using Tm_TApp(1) forall_ty_lam ST_BetaTI(1) by fastforce
+    have same: "k = k2" using Tm_TApp.hyps(1) forall_ty_val local.ST_TBeta(1) local.ST_TBeta(3) by fastforce
     obtain e2' where c2: "(\<Lambda> b:k2. e2) = (\<Lambda> c:k. e2')" using Abs_lst_rename[OF c(3)] same by auto
-    have 1: "[] \<turnstile> (\<Lambda> c:k. e2') : \<forall> c:k. \<sigma>2" using Tm_TApp(1) ST_BetaTI(1) c2 c1 by simp
-    have 2: "[BTyVar c k] \<turnstile> e2' : \<sigma>2"
+    have 1: "\<Gamma> , \<Delta> \<turnstile> (\<Lambda> c:k. e2') : \<forall> c:k. \<sigma>2" using Tm_TApp(1) ST_TBeta(1) c2 c1 by simp
+    have 2: "BTyVar c k # \<Gamma> , \<Delta> \<turnstile> e2' : \<sigma>2"
     proof (cases rule: Tm.cases[OF 1])
-      case (4 d _ _ e \<sigma>)
-      have x1: "(d \<leftrightarrow> c) \<bullet> e = e2'" using Abs_rename_body[of d e c e2'] 4(2) by simp
-      have x2: "(d \<leftrightarrow> c) \<bullet> \<sigma> = \<sigma>2" using Abs_rename_body[of d \<sigma> c \<sigma>2] 4(3) by simp
-      show ?thesis
-        by (metis "1" Abs1_eq_iff(3) T_AbsT_Inv \<tau>.eq_iff(5) fresh_Nil fresh_in_context_ty typing_regularity)
+      case (4 d _ _ _ e \<sigma>)
+      have x1: "(d \<leftrightarrow> c) \<bullet> e = e2'" using Abs_rename_body[of d e c e2'] 4(3) by simp
+      have x2: "(d \<leftrightarrow> c) \<bullet> \<sigma> = \<sigma>2" using Abs_rename_body[of d \<sigma> c \<sigma>2] 4(4) by simp
+      have "(d \<leftrightarrow> c) \<bullet> (BTyVar d k # \<Gamma> , \<Delta> \<turnstile> e : \<sigma>)" using 4 by auto
+      then have x3: "((d \<leftrightarrow> c) \<bullet> BTyVar d k) # ((d \<leftrightarrow> c) \<bullet> \<Gamma>) , (d \<leftrightarrow> c) \<bullet> \<Delta> \<turnstile> e2' : \<sigma>2" using x1 x2 Tm.eqvt by auto
+      have "atom d \<sharp> \<Gamma>" using 4(1,5) context_valid_tm by blast
+      then have x4: "(d \<leftrightarrow> c) \<bullet> \<Gamma> = \<Gamma>" using c(5) flip_fresh_fresh by blast
+      have x5: "(d \<leftrightarrow> c) \<bullet> \<Delta> = \<Delta>" using fresh_in_axioms flip_fresh_fresh axioms_valid(3)[OF 1] by blast
+      from x3 x4 x5 have "((d \<leftrightarrow> c) \<bullet> BTyVar d k) # \<Gamma> , \<Delta> \<turnstile> e2' : \<sigma>2" by argo
+      then show ?thesis by (simp add: flip_fresh_fresh)
     qed auto
     then show ?thesis
-      by (metis Tm_TApp.hyps(3) \<tau>.eq_iff(5) append_Nil c1 c2 local.ST_BetaTI(2) subst_context.simps(1) subst_term_type_same subst_type_same term.eq_iff(6) type_substitution(3))
+      by (metis Tm_TApp.hyps(3) \<tau>.eq_iff(5) append_Nil c1 c2 local.ST_TBeta(2) subst_context.simps(1) subst_term_type_same subst_type_same term.eq_iff(6) type_substitution(3))
   next
-    case (ST_AppTI e2)
-    then show ?thesis using Tm_TApp(2,3) Tm.Tm_TApp beta_nf_def value_beta_nf by blast
+    case (ST_TApp e2)
+    then show ?thesis using Tm.Tm_TApp Tm_TApp(2,3,5) beta_nf_def value_beta_nf by blast
   qed
 next
   case (Tm_Let e1 \<tau>1 x e2 \<tau>2)
-  from Tm_Let(4) show ?case
+  from Tm_Let(5) show ?case
   proof cases
-    case (ST_SubstI x e2)
-    then show ?thesis
-      by (metis Tm_Let.hyps(1,3,4) Step.ST_SubstI Step_deterministic append.left_neutral substitution)
+    case (ST_Let x e2)
+    then show ?thesis by (metis Tm_Let(1,3) append_self_conv2 subst_term_same substitution)
   qed
 qed auto
 
-lemma multi_preservation: "\<lbrakk> e \<longrightarrow>* e' ; [] \<turnstile> e : \<tau> \<rbrakk> \<Longrightarrow> [] \<turnstile> e' : \<tau>"
+lemma multi_preservation: "\<lbrakk> e \<longrightarrow>* e' ; [] , \<Delta> \<turnstile> e : \<tau> \<rbrakk> \<Longrightarrow> [] , \<Delta> \<turnstile> e' : \<tau>"
   by (induction e e' rule: Steps.induct) (auto simp: preservation)
 
-corollary soundness: "\<lbrakk> [] \<turnstile> e : \<tau> ; e \<longrightarrow>* e' \<rbrakk> \<Longrightarrow> \<not>(stuck e')"
+corollary soundness: "\<lbrakk> [] , \<Delta> \<turnstile> e : \<tau> ; e \<longrightarrow>* e' \<rbrakk> \<Longrightarrow> \<not>(stuck e')"
   unfolding stuck_def beta_nf_def
-  using progress multi_preservation by blast
+  using progress multi_preservation isin.simps(1) by blast
 
 end

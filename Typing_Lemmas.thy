@@ -34,6 +34,27 @@ proof (cases rule: Tm.cases[OF a])
   qed
 qed simp_all
 
+lemma T_Abs_Inv_2:
+  fixes \<tau>::\<tau>
+  assumes a: "\<Gamma> , \<Delta> \<turnstile> (\<lambda>x:\<tau>1. e) : \<tau>"
+  obtains x' e' \<tau>2 where "BVar x' \<tau>1  # \<Gamma> , \<Delta> \<turnstile> e' : \<tau>2" "(\<lambda>x:\<tau>1. e) = (\<lambda>x':\<tau>1. e')" "atom x' \<sharp> (x, e)" "\<tau> = (\<tau>1 \<rightarrow> \<tau>2)"
+proof (cases rule: Tm.cases[OF a])
+  case (2 x' _ _ _ e' \<tau>2)
+  then obtain c::var where "atom c \<sharp> (x, e, x', e', \<Gamma>)" using obtain_fresh by blast
+  then have c: "atom c \<sharp> x" "atom c \<sharp> e" "atom c \<sharp> x'" "atom c \<sharp> e'" "atom c \<sharp> \<Gamma>" by auto
+  obtain e2 where P: "(x' \<leftrightarrow> c) \<bullet> (\<lambda> x' : \<tau>1 . e') = (\<lambda> c : \<tau>1 . e2)" using flip_fresh_fresh by force
+  then have 1: "(x' \<leftrightarrow> c) \<bullet> e' = e2" by (simp add: Abs1_eq_iff(3))
+  have 3: "(x' \<leftrightarrow> c) \<bullet> \<Gamma> = \<Gamma>" by (metis 2(1,5) CtxE(2) c(5) context_valid_tm flip_def swap_fresh_fresh)
+  have 4: "((x' \<leftrightarrow> c) \<bullet> BVar x' \<tau>1) = BVar c \<tau>1" using P by auto
+  have valid: "\<turnstile> \<Delta>" using axioms_valid(3)[OF 2(5)] 2(2) by simp
+  have "(x' \<leftrightarrow> c) \<bullet> (BVar x' \<tau>1 # \<Gamma> , \<Delta> \<turnstile> e' : \<tau>2)" using 2 by auto
+  then have "((x' \<leftrightarrow> c) \<bullet> (BVar x' \<tau>1 # \<Gamma>)) , \<Delta> \<turnstile> (x' \<leftrightarrow> c) \<bullet>  e' : \<tau>2" using valid by auto
+  then have "(((x' \<leftrightarrow> c) \<bullet> BVar x' \<tau>1) # ((x' \<leftrightarrow> c) \<bullet> \<Gamma>)) , \<Delta> \<turnstile> e2 : \<tau>2" using 1 by auto
+  then have x: "BVar c \<tau>1 # \<Gamma> , \<Delta> \<turnstile> e2 : \<tau>2" using 3 4 by argo
+  have y: "(\<lambda> x : \<tau>1 . e) = (\<lambda> c : \<tau>1 . e2)" by (metis 1 2(3) Abs1_eq_iff(3) c(3,4) flip_commute fresh_at_base(2) term.eq_iff(5))
+  show ?thesis using that[OF x y] 2(3,4) c(1,2) by simp
+qed auto
+
 lemma T_Let_Inv:
   assumes a: "\<Gamma> , \<Delta> \<turnstile> Let x \<tau>1 e1 e2 : \<tau>" and b: "atom x \<sharp> \<Gamma>"
   shows "\<Gamma> , \<Delta> \<turnstile> e1 : \<tau>1 \<and> BVar x \<tau>1 # \<Gamma> , \<Delta> \<turnstile> e2 : \<tau>"
@@ -262,5 +283,19 @@ lemma axioms_regularity: "\<turnstile> \<Delta>' @ AxCtor D \<tau> # \<Delta> \<
 
 lemma context_regularity: "\<Delta> \<turnstile> \<Gamma>' @ BVar x \<tau> # \<Gamma> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star>"
   using Ctx_Var context_split_valid by (induction \<Gamma>) blast+
+
+lemma Tm_eqvt_tyvar:
+  assumes "BTyVar a k # \<Gamma> , \<Delta> \<turnstile> e : \<tau>" "atom c \<sharp> \<Gamma>"
+  shows "BTyVar c k # \<Gamma> , \<Delta> \<turnstile> (a \<leftrightarrow> c) \<bullet> e : (a \<leftrightarrow> c) \<bullet> \<tau>"
+proof -
+  have "\<turnstile> \<Delta>" by (rule axioms_valid(3)[OF assms(1)])
+  then have 1: "(a \<leftrightarrow> c) \<bullet> \<Delta> = \<Delta>" by auto
+  have "\<Delta> \<turnstile> BTyVar a k # \<Gamma>" by (rule context_valid(2)[OF assms(1)])
+  then have 2: "(a \<leftrightarrow> c) \<bullet> \<Gamma> = \<Gamma>" using assms(2) flip_fresh_fresh by blast
+  have 3: "(a \<leftrightarrow> c) \<bullet> BTyVar a k = BTyVar c k" using flip_fresh_fresh by force
+
+  have "(a \<leftrightarrow> c) \<bullet> (BTyVar a k # \<Gamma>) , (a \<leftrightarrow> c) \<bullet> \<Delta> \<turnstile> (a \<leftrightarrow> c) \<bullet> e : (a \<leftrightarrow> c) \<bullet> \<tau>" by (rule Tm.eqvt[OF assms(1), of "(a \<leftrightarrow> c)"])
+  then show ?thesis using 1 2 3 by auto
+qed
 
 end
