@@ -15,9 +15,10 @@ You can find the proof of type safety in [Soundness.thy](./Soundness.thy), the p
 -   [x] Use the Nominal2 framework to reason about alpha-equated terms ([v2.0](https://github.com/jvanbruegge/isabelle-lambda-calculus/tree/v2.0))
 -   [x] Extend to System F (ie introduce polymorphic variables) ([v3.0](https://github.com/jvanbruegge/isabelle-lambda-calculus/tree/v3.0))
 -   [x] Use a context validity judgement ([v3.1](https://github.com/jvanbruegge/isabelle-lambda-calculus/tree/v3.1))
--   [ ] Add arbitrary user-defined datatypes
+-   [x] Add arbitrary user-defined datatypes ([v3.5](https://github.com/jvanbruegge/isabelle-lambda-calculus/tree/v3.5))
 -   [ ] Add `case` expressions
 -   [ ] Extend to System Fc (ie introduce type equality coercions)
+-   [ ] Extend to System FcPro (ie introduce kind abstractions)
 
 ## Used literature
 
