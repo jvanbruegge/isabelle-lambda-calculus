@@ -82,6 +82,7 @@ lemma subst_type_same: "[[atom a]]lst. e = [[atom a']]lst. e' \<Longrightarrow> 
   by (metis Abs1_eq_iff(3) flip_commute subst_type_var_name)
 lemma subst_term_type_same: "[[atom a]]lst. e = [[atom a']]lst. e' \<Longrightarrow> subst_term_type e \<tau> a = subst_term_type e' \<tau> a'"
   by (metis Abs1_eq_iff(3) flip_commute subst_term_type_var_name)
+lemmas subst_same = subst_term_same subst_type_same subst_term_type_same
 
 (* atom x \<sharp> \<Gamma> \<Longrightarrow> \<not>isin (B x _) \<Gamma> *)
 lemma fresh_not_isin_tyvar: "atom a \<sharp> \<Gamma> \<Longrightarrow> \<not>isin (BTyVar a k) \<Gamma>"
@@ -133,5 +134,8 @@ lemmas subst_subst = subst_subst_term subst_subst_type subst_subst_term_type sub
 (* misc *)
 lemma fv_supp_subset: "fv_\<tau> \<tau> \<subseteq> supp \<tau>"
   by (induction \<tau> rule: \<tau>.induct) (auto simp: \<tau>.supp \<tau>.fv_defs)
+
+lemma head_ctor_is_value: "head_ctor e \<Longrightarrow> is_value e"
+  by (induction e rule: term.induct) auto
 
 end
