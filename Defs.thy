@@ -35,9 +35,10 @@ nominal_function head_ctor :: "term \<Rightarrow> bool" where
 | "head_ctor (TApp e _) = head_ctor e"
 | "head_ctor (Ctor _) = True"
 | "head_ctor (Let _ _ _ _) = False"
+| "head_ctor (Case _ _) = False"
 proof goal_cases
   case (3 P x)
-  then show ?case by (cases x rule: term.exhaust)
+  then show ?case by (cases x rule: term_alt_list_alt.exhaust(1))
 qed (auto simp: eqvt_def head_ctor_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
@@ -170,44 +171,111 @@ nominal_function is_value :: "term => bool" where
 | "is_value (TApp e \<tau>) = head_ctor e"
 | "is_value (Ctor _) = True"
 | "is_value (Let x \<tau> e1 e2) = False"
+| "is_value (Case _ _) = False"
 proof goal_cases
   case (3 P x)
-  then show ?case by (cases x rule: term.exhaust)
+  then show ?case by (cases x rule: term_alt_list_alt.exhaust(1))
 next
-  case (17 a k e a' k' e')
+  case (19 a k e a' k' e')
   obtain c::tyvar where c: "atom c \<sharp> (a, e, a', e')" by (rule obtain_fresh)
   have 1: "is_value_sumC e' = (a' \<leftrightarrow> c) \<bullet> is_value_sumC e'" using permute_boolE permute_boolI by blast
   have 2: "is_value_sumC e = (a \<leftrightarrow> c) \<bullet> is_value_sumC e" using permute_boolE permute_boolI by blast
-  from c have "(a \<leftrightarrow> c) \<bullet> e = (a' \<leftrightarrow> c) \<bullet> e'" using 17(5) by simp
-  then show ?case using 1 2 17(1,2) eqvt_at_def by metis
+  from c have "(a \<leftrightarrow> c) \<bullet> e = (a' \<leftrightarrow> c) \<bullet> e'" using 19(5) by simp
+  then show ?case using 1 2 19(1,2) eqvt_at_def by metis
 qed (auto simp: eqvt_def is_value_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
-nominal_function subst_term :: "term => term \<Rightarrow> var => term" where
+nominal_function (default "case_sum (\<lambda>x. Inl undefined) (case_sum (\<lambda>x. Inr (Inl undefined)) (\<lambda>x. Inr (Inr undefined)))")
+  subst_term :: "term => term \<Rightarrow> var => term" and
+  subst_alt_list :: "alt_list \<Rightarrow> term \<Rightarrow> var \<Rightarrow> alt_list" and
+  subst_alt :: "alt \<Rightarrow> term \<Rightarrow> var \<Rightarrow> alt" where
+
   "subst_term (Var y) e x  = (if x = y then e else Var y)"
 | "subst_term (App e1 e2) e x = App (subst_term e1 e x) (subst_term e2 e x)"
 | "subst_term (TApp e1 \<tau>) e x = TApp (subst_term e1 e x) \<tau>"
 | "subst_term (Ctor D) _ _ = Ctor D"
+| "subst_term (Case t alts) e x = Case (subst_term t e x) (subst_alt_list alts e x)"
 | "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (\<lambda> y:\<tau>. e2) e x = (\<lambda> y:\<tau>. subst_term e2 e x)"
 | "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (\<Lambda> y:k. e2) e x = (\<Lambda> y:k. subst_term e2 e x)"
 | "atom y \<sharp> (e, x) \<Longrightarrow> subst_term (Let y \<tau> e1 e2) e x = Let y \<tau> (subst_term e1 e x) (subst_term e2 e x)"
+
+| "subst_alt_list ANil _ _ = ANil"
+| "subst_alt_list (ACons alt alts) e x = ACons (subst_alt alt e x) (subst_alt_list alts e x)"
+
+| "atom y \<sharp> (e, x) \<Longrightarrow> subst_alt (MatchVar y t) e x = MatchVar y (subst_term t e x)"
+| "set (map atom tys @ map atom vals) \<sharp>* (e, x) \<Longrightarrow> subst_alt (MatchCtor D tys vals t) e x = MatchCtor D tys vals (subst_term t e x)"
 proof (goal_cases)
-  case (3 P x)
-  then obtain t e y where P: "x = (t, e, y)" by (metis prod.exhaust)
+
+  (* this is adapted and simplified from here: https://www.joachim-breitner.de/thesis/isa/Substitution.thy *)
+  have eqvt_at_term: "\<And>e y z . eqvt_at subst_term_subst_alt_list_subst_alt_sumC (Inl (e, y, z)) \<Longrightarrow> eqvt_at (\<lambda>(a, b, c). subst_term a b c) (e, y, z)"
+    apply (simp add: eqvt_at_def subst_term_def)
+    apply rule
+    apply (subst Projl_permute)
+     apply (simp add: subst_term_subst_alt_list_subst_alt_sumC_def)
+     apply (simp add: THE_default_def)
+     apply (case_tac "Ex1 (subst_term_subst_alt_list_subst_alt_graph (Inl (e, y, z)))")
+      apply(auto)[2]
+      apply (erule_tac x="x" in allE)
+      apply simp
+      apply(cases rule: subst_term_subst_alt_list_subst_alt_graph.cases)
+               apply(assumption)
+              apply blast+
+    apply simp
+    done
+
+{ case (3 P x)
   then show ?case
-    apply (cases t rule: term.strong_exhaust[of _ _ "(e, y)"])
-          apply (auto simp: 3)
-    using 3(5-7) P fresh_star_def by blast+
+  proof (cases x)
+    case (Inl a)
+    then obtain t e y where P: "a = (t, e, y)" by (metis prod.exhaust)
+    then show ?thesis using 3(1-5) Inl
+    proof (cases t rule: term_alt_list_alt.strong_exhaust(1)[of _ _ "(e, y)"])
+      case Lam
+      then show ?thesis using 3(6) Inl P fresh_star_insert by blast
+    next
+      case TyLam
+      then show ?thesis using 3(7) Inl P fresh_star_insert by blast
+    next
+      case Let
+      then show ?thesis using 3(8) Inl P fresh_star_insert by blast
+    qed auto
+  next
+    case outer: (Inr b)
+    then show ?thesis
+    proof (cases b)
+      case (Inl a)
+      then obtain xs e y where "a = (xs, e, y)" by (metis prod.exhaust)
+      then show ?thesis using 3(9,10) Inl outer by (cases xs rule: term_alt_list_alt.exhaust(2)) auto
+    next
+      case (Inr c)
+      then obtain m e y where "c = (m, e, y)" by (metis prod.exhaust)
+      then show ?thesis using 3(11,12) Inr outer fresh_star_insert
+        apply (cases m rule: term_alt_list_alt.strong_exhaust(3)[of "(e, y)"])
+         apply auto
+        by blast
+    qed
+  qed
 next
-  case (26 y e x \<tau> e2 y' e' x' \<tau>' e2')
-  then show ?case using Abs_sumC[OF 26(5,6,1,2)] by fastforce
+  case (54 y e x \<tau> e2 y' e' x' \<tau>' e2')
+  have "(\<lambda> y : \<tau> . subst_term e2 e x) = (\<lambda> y' : \<tau>' . subst_term e2' e' x')" using Abs_sumC[OF 54(5,6) eqvt_at_term[OF 54(1)] eqvt_at_term[OF 54(2)]] 54(7) by fastforce
+  then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_def, symmetric, unfolded fun_eq_iff])
 next
-  case (29 y e x k e2 y' e' x' k' e2')
-  then show ?case using Abs_sumC[OF 29(5,6,1,2)] by fastforce
+  case (61 y e x k e2 y' e' x' k' e2')
+  have "(\<Lambda> y : k . subst_term e2 e x) = (\<Lambda> y' : k' . subst_term e2' e' x')" using Abs_sumC[OF 61(5,6) eqvt_at_term[OF 61(1)] eqvt_at_term[OF 61(2)]] 61(7) by fastforce
+  then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_def, symmetric, unfolded fun_eq_iff])
 next
-  case (31 y e x \<tau> e1 e2 y' e' x' \<tau>' e1' e2')
-  then show ?case using Abs_sumC[OF 31(9,10,2,4)] by fastforce
-qed (auto simp: eqvt_def subst_term_graph_aux_def)
+  case (67 y e x \<tau> e1 e2 y' e' x' \<tau>' e1' e2')
+  have "Let y \<tau> (subst_term e1 e x) (subst_term e2 e x) = Let y' \<tau>' (subst_term e1' e' x') (subst_term e2' e' x')" using Abs_sumC[OF 67(9,10) eqvt_at_term[OF 67(2)] eqvt_at_term[OF 67(4)]] 67(11) by fastforce
+  then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_def, symmetric, unfolded fun_eq_iff])
+next
+  case (79 y e x t y' e' x' t')
+  have "MatchVar y (subst_term t e x) = MatchVar y' (subst_term t' e' x')" using Abs_sumC[OF 79(5,6) eqvt_at_term[OF 79(1)] eqvt_at_term[OF 79(2)]] 79(7) by fastforce
+  then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_def, symmetric, unfolded fun_eq_iff])
+next
+  case (81 tys vals e x D t tys' vals' e' x' D' t')
+  have "MatchCtor D tys vals (subst_term t e x) = MatchCtor D' tys' vals' (subst_term t' e' x')" using Abs_sumC_star[OF 81(5,6) eqvt_at_term[OF 81(1)] eqvt_at_term[OF 81(2)]] 81(7) by fastforce
+  then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_def, symmetric, unfolded fun_eq_iff])
+} qed (auto simp: eqvt_def subst_term_subst_alt_list_subst_alt_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
 nominal_function subst_type :: "\<tau> \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> \<tau>" where
@@ -219,41 +287,107 @@ nominal_function subst_type :: "\<tau> \<Rightarrow> \<tau> \<Rightarrow> tyvar 
 proof goal_cases
   case (3 P x)
   then obtain t \<tau> a where P: "x = (t, \<tau>, a)" by (metis prod.exhaust)
-  then show ?case
-    apply (cases t rule: \<tau>.strong_exhaust[of _ _ "(\<tau>, a)"])
-       apply (auto simp: 3)
-    using 3(5) P fresh_star_def by blast
+  then show ?case proof(cases t rule: \<tau>.strong_exhaust[of _ _ "(\<tau>, a)"])
+    case (TyForall x51 x52 x53)
+    then show ?thesis using 3(5) P fresh_star_def by blast
+  qed (auto simp: 3)
 next
   case (18 b \<tau> a k \<sigma> b' \<tau>' a' k' \<sigma>')
   then show ?case using Abs_sumC[OF 18(5,6,1,2)] by fastforce
 qed (auto simp: eqvt_def subst_type_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
-nominal_function subst_term_type :: "term \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> term" where
+nominal_function (default "case_sum (\<lambda>x. Inl undefined) (case_sum (\<lambda>x. Inr (Inl undefined)) (\<lambda>x. Inr (Inr undefined)))")
+  subst_term_type :: "term \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> term" and
+  subst_alt_list_type :: "alt_list \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> alt_list" and
+  subst_alt_type :: "alt \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> alt" where
+
   "subst_term_type (Var x) _ _ = Var x"
 | "subst_term_type (Ctor D) _ _ = Ctor D"
 | "subst_term_type (App e1 e2) \<tau> a = App (subst_term_type e1 \<tau> a) (subst_term_type e2 \<tau> a)"
 | "subst_term_type (TApp e \<tau>2) \<tau> a = TApp (subst_term_type e \<tau> a) (subst_type \<tau>2 \<tau> a)"
+| "subst_term_type (Case e alts) \<tau> a = Case (subst_term_type e \<tau> a) (subst_alt_list_type alts \<tau> a)"
 | "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type (\<lambda> y:\<tau>'. e2) \<tau> a = (\<lambda> y:(subst_type \<tau>' \<tau> a). subst_term_type e2 \<tau> a)"
 | "atom b \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type (\<Lambda> b:k. e2) \<tau> a = (\<Lambda> b:k. subst_term_type e2 \<tau> a)"
 | "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_term_type (Let y \<tau>' e1 e2) \<tau> a = Let y (subst_type \<tau>' \<tau> a) (subst_term_type e1 \<tau> a) (subst_term_type e2 \<tau> a)"
+
+| "subst_alt_list_type ANil _ _ = ANil"
+| "subst_alt_list_type (ACons alt alts) \<tau> a = ACons (subst_alt_type alt \<tau> a) (subst_alt_list_type alts \<tau> a)"
+
+| "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_alt_type (MatchVar y e) \<tau> a = MatchVar y (subst_term_type e \<tau> a)"
+| "set (map atom tys @ map atom vals) \<sharp>* (\<tau>, a) \<Longrightarrow> subst_alt_type (MatchCtor D tys vals e) \<tau> a = MatchCtor D tys vals (subst_term_type e \<tau> a)"
 proof goal_cases
-  case (3 P x)
-  then obtain t \<tau> a where P: "x = (t, \<tau>, a)" by (metis prod.exhaust)
+
+  (* this is adapted and simplified from here: https://www.joachim-breitner.de/thesis/isa/Substitution.thy *)
+  have eqvt_at_term: "\<And>e y z . eqvt_at subst_term_type_subst_alt_list_type_subst_alt_type_sumC (Inl (e, y, z)) \<Longrightarrow> eqvt_at (\<lambda>(a, b, c). subst_term_type a b c) (e, y, z)"
+    apply (simp add: eqvt_at_def subst_term_type_def)
+    apply rule
+    apply (subst Projl_permute)
+     apply (simp add: subst_term_type_subst_alt_list_type_subst_alt_type_sumC_def)
+     apply (simp add: THE_default_def)
+     apply (case_tac "Ex1 (subst_term_type_subst_alt_list_type_subst_alt_type_graph (Inl (e, y, z)))")
+      apply(auto)[2]
+      apply (erule_tac x="x" in allE)
+      apply simp
+      apply(cases rule: subst_term_type_subst_alt_list_type_subst_alt_type_graph.cases)
+               apply(assumption)
+              apply blast+
+    apply simp
+    done
+
+{ case (3 P x)
   then show ?case
-    apply (cases t rule: term.strong_exhaust[of _ _ "(\<tau>, a)"])
-    using 3 P apply auto[4]
-    using 3(5,6,7) P fresh_star_def by blast+
+  proof (cases x)
+    case (Inl a)
+    then obtain t e y where P: "a = (t, e, y)" by (metis prod.exhaust)
+    then show ?thesis using 3(1-5) Inl
+    proof (cases t rule: term_alt_list_alt.strong_exhaust(1)[of _ _ "(e, y)"])
+      case Lam
+      then show ?thesis using 3(6) Inl P fresh_star_insert by blast
+    next
+      case TyLam
+      then show ?thesis using 3(7) Inl P fresh_star_insert by blast
+    next
+      case Let
+      then show ?thesis using 3(8) Inl P fresh_star_insert by blast
+    qed auto
+  next
+    case outer: (Inr b)
+    then show ?thesis
+    proof (cases b)
+      case (Inl a)
+      then obtain xs e y where "a = (xs, e, y)" by (metis prod.exhaust)
+      then show ?thesis using 3(9,10) Inl outer by (cases xs rule: term_alt_list_alt.exhaust(2)) auto
+    next
+      case (Inr c)
+      then obtain m e y where P: "c = (m, e, y)" by (metis prod.exhaust)
+      then show ?thesis using Inr outer 3(11,12)
+        apply (cases m rule: term_alt_list_alt.strong_exhaust(3)[of "(e, y)"]) apply simp
+        using fresh_star_insert by blast
+    qed
+  qed
 next
-  case (26 y \<tau> a \<tau>1 e2 y' \<tau>' a' \<tau>1' e2')
-  then show ?case using Abs_sumC[OF 26(5,6,1,2)] by fastforce
+  case (54 y \<tau> a \<tau>2 e2 y' \<tau>' a' \<tau>2' e2')
+  have "(\<lambda> y : subst_type \<tau>2 \<tau> a . subst_term_type e2 \<tau> a) = (\<lambda> y' : subst_type \<tau>2' \<tau>' a' . subst_term_type e2' \<tau>' a')" using Abs_sumC[OF 54(5,6) eqvt_at_term[OF 54(1)] eqvt_at_term[OF 54(2)]] 54(7) by fastforce
+  then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
 next
-  case (29 b \<tau> a k e2 b' \<tau>' a' k' e2')
-  then show ?case using Abs_sumC[OF 29(5,6,1,2)] by fastforce
+  case (61 b \<tau> a k e2 b' \<tau>' a' k' e2')
+  have "(\<Lambda> b : k . subst_term_type e2 \<tau> a) = (\<Lambda> b' : k' . subst_term_type e2' \<tau>' a')" using Abs_sumC[OF 61(5,6) eqvt_at_term[OF 61(1)] eqvt_at_term[OF 61(2)]] 61(7) by fastforce
+  then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
 next
-  case (31 y \<tau> a \<tau>1 e1 e2 y' \<tau>' a' \<tau>1' e1' e2')
-  then show ?case using Abs_sumC[OF 31(9,10,2,4)] by fastforce
-qed (auto simp: eqvt_def subst_term_type_graph_aux_def)
+  case (67 y \<tau> a \<tau>2 e1 e2 y' \<tau>' a' \<tau>2' e1' e2')
+  have "Let y (subst_type \<tau>2 \<tau> a) (subst_term_type e1 \<tau> a) (subst_term_type e2 \<tau> a) = Let y' (subst_type \<tau>2' \<tau>' a') (subst_term_type e1' \<tau>' a') (subst_term_type e2' \<tau>' a')"
+    using Abs_sumC[OF 67(9,10) eqvt_at_term[OF 67(2)] eqvt_at_term[OF 67(4)]] 67(11) by fastforce
+  then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
+next
+  case (79 y \<tau> a e y' \<tau>' a' e')
+  have "MatchVar y (subst_term_type e \<tau> a) = MatchVar y' (subst_term_type e' \<tau>' a')" using Abs_sumC[OF 79(5,6) eqvt_at_term[OF 79(1)] eqvt_at_term[OF 79(2)]] 79(7) by fastforce
+  then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
+next
+  case (81 tys vals \<tau> a D e tys' vals' \<tau>' a' D' e')
+  have "MatchCtor D tys vals (subst_term_type e \<tau> a) = MatchCtor D' tys' vals' (subst_term_type e' \<tau>' a')" using Abs_sumC_star[OF 81(5,6) eqvt_at_term[OF 81(1)] eqvt_at_term[OF 81(2)]] 81(7) by fastforce
+  then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
+} qed (auto simp: eqvt_def subst_term_type_subst_alt_list_type_subst_alt_type_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
 nominal_function subst_context :: "\<Gamma> \<Rightarrow> \<tau> \<Rightarrow> tyvar \<Rightarrow> \<Gamma>" where
@@ -275,6 +409,6 @@ no_notation inverse_divide (infixl "'/" 70)
 consts subst :: "'a \<Rightarrow> 'b \<Rightarrow> 'c \<Rightarrow> 'a" ("_[_'/_]" [1000,0,0] 1000)
 
 adhoc_overloading
-  subst subst_term subst_type subst_term_type subst_context
+  subst subst_term subst_alt_list subst_alt subst_type subst_term_type subst_alt_list_type subst_alt_type subst_context
 
 end
