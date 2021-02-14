@@ -41,6 +41,13 @@ nominal_datatype "term" =
  | Lam x::"var" "\<tau>" e::"term" binds x in e  ("\<lambda> _ : _ . _" 50)
  | TyLam a::"tyvar" "\<kappa>" e::"term" binds a in e ("\<Lambda> _ : _ . _" 50)
  | Let x::"var" "\<tau>" "term" e2::"term" binds x in e2
+ | Case "term" "alt_list"
+and "alt_list" =
+  ANil
+| ACons "alt" "alt_list"
+and "alt" =
+  MatchCtor "ctor_name" tys::"tyvar list" vals::"var list" e::"term" binds tys vals in e
+| MatchVar x::"var" e::"term" binds x in e
 
 nominal_datatype "binder" =
   BVar "var" "\<tau>"
