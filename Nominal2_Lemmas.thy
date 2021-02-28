@@ -79,4 +79,7 @@ lemma Abs_rename_body:
   shows "(a \<leftrightarrow> b) \<bullet> e1 = e2"
   by (metis Abs1_eq_iff'(3) Nominal2_Base.swap_self assms flip_commute flip_def fresh_star_zero supp_perm_eq_test)
 
+lemma fresh_filter: "a = b \<or> atom a \<sharp> xs \<Longrightarrow> atom a \<sharp> filter (\<lambda>x. x \<noteq> b) xs"
+  by (induction xs) (auto simp: fresh_Cons fresh_Nil)
+
 end

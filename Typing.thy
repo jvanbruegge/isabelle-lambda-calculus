@@ -12,7 +12,7 @@ inductive Ax :: "\<Delta> \<Rightarrow> bool" ("\<turnstile> _")
 
 | Ax_Data: "\<lbrakk> \<turnstile> \<Delta> ; atom T \<sharp> \<Delta> \<rbrakk> \<Longrightarrow> \<turnstile> AxData T \<kappa> # \<Delta>"
 
-| Ax_Ctor: "\<lbrakk> [] , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; atom D \<sharp> \<Delta> \<rbrakk> \<Longrightarrow> \<turnstile> AxCtor D \<tau> # \<Delta>"
+| Ax_Ctor: "\<lbrakk> [] , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; ctor_type \<tau> = Some T ; atom D \<sharp> \<Delta> \<rbrakk> \<Longrightarrow> \<turnstile> AxCtor D \<tau> # \<Delta>"
 
 (* ------------------------------ *)
 
