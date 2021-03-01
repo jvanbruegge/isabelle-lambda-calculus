@@ -1,4 +1,4 @@
-FROM makarius/isabelle:Isabelle2020
+FROM makarius/isabelle:Isabelle2021
 
 RUN for t in Nominal2 FinFun; do \
         curl https://www.isa-afp.org/release/afp-$t-current.tar.gz -o $t.tar.gz ; \
