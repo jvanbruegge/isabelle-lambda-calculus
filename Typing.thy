@@ -51,6 +51,10 @@ inductive Tm :: "\<Gamma> \<Rightarrow> \<Delta> \<Rightarrow> term \<Rightarrow
 
 | Tm_Let: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e1 : \<tau>1 ; BVar x \<tau>1 # \<Gamma> , \<Delta> \<turnstile> e2 : \<tau>2 \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Let x \<tau>1 e1 e2 : \<tau>2"
 
+| Tm_Case: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e : \<tau>1 ; head_data \<tau>1 = Some T ; \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; exhaustive alts \<Delta> T ;
+    \<forall>m\<in>set_alt_list alts.  True
+  \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Case e alts : \<tau>"
+
 equivariance Tm
 
 lemmas Ax_intros = Ax_Ctx_Ty.intros(1-3)

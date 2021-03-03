@@ -42,6 +42,35 @@ proof goal_cases
 qed (auto simp: eqvt_def head_ctor_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
+nominal_function head_data :: "\<tau> \<Rightarrow> data_name option" where
+  "head_data (TyVar _) = None"
+| "head_data (TyData T) = Some T"
+| "head_data TyArrow = None"
+| "head_data (TyApp (TyData T) _) = Some T"
+| "head_data (TyApp (TyVar _) _) = None"
+| "head_data (TyApp TyArrow _) = None"
+| "head_data (TyApp (TyApp _ _) _) = None"
+| "head_data (TyApp (TyForall _ _ _) _) = None"
+| "head_data (TyForall _ _ _) = None"
+proof goal_cases
+  case (3 P x)
+  then show ?case
+  proof (cases x rule: \<tau>.exhaust)
+    case (TyApp \<tau>1 \<tau>2)
+    then show ?thesis using 3 by (cases \<tau>1 rule: \<tau>.exhaust) auto
+  qed
+qed (auto simp: eqvt_def head_data_graph_aux_def)
+nominal_termination (eqvt) by lexicographic_order
+
+nominal_function set_alt_list :: "alt_list \<Rightarrow> alt set" where
+  "set_alt_list ANil = {}"
+| "set_alt_list (ACons alt alts) = insert alt (set_alt_list alts)"
+proof goal_cases
+  case (3 P x)
+  then show ?case by (cases x rule: term_alt_list_alt.exhaust(2))
+qed (auto simp: eqvt_def set_alt_list_graph_aux_def)
+nominal_termination (eqvt) by lexicographic_order
+
 nominal_function ctor_data_app :: "\<tau> \<Rightarrow> (data_name * tyvar list) option" where
   "ctor_data_app (TyVar _) = None"
 | "ctor_data_app (TyData T) = Some (T, [])"
@@ -162,6 +191,14 @@ next
   then show ?case by (simp add: 18)
 qed auto
 nominal_termination (eqvt) by lexicographic_order
+
+abbreviation exhaustive :: "alt_list \<Rightarrow> \<Delta> \<Rightarrow> data_name \<Rightarrow> bool" where
+  "exhaustive alts \<Delta> T \<equiv>
+    (\<nexists>x e. MatchVar x e \<in> set_alt_list alts) \<longrightarrow>
+      (\<forall>D \<tau>.
+          (AxCtor D \<tau> \<in> set \<Delta> \<and> ctor_type \<tau> = Some T) \<longrightarrow>
+          (\<exists>tys vals e. MatchCtor D tys vals e \<in> set_alt_list alts)
+      )"
 
 nominal_function is_value :: "term => bool" where
   "is_value (Var x) = False"
