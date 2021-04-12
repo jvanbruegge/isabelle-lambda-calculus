@@ -18,6 +18,8 @@ inductive Step :: "term \<Rightarrow> term \<Rightarrow> bool" ("_ \<longrightar
 
 | ST_Let: "Let x \<tau> e1 e2 \<longrightarrow> e2[e1/x]"
 
+| ST_Case_Cong: "e \<longrightarrow> e' \<Longrightarrow> Case e alts \<longrightarrow> Case e' alts"
+
 equivariance Step
 nominal_inductive Step .
 

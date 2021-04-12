@@ -91,6 +91,13 @@ lemma perm_ctor_name_var[simp]: "((a::var) \<leftrightarrow> b) \<bullet> (D :: 
   using flip_fresh_fresh pure_fresh by blast
 lemma perm_ctor_name_tyvar[simp]: "((a::tyvar) \<leftrightarrow> b) \<bullet> (D :: ctor_name) = D"
   using flip_fresh_fresh pure_fresh by blast
-
+lemma perm_kind_var[simp]: "((a::var) \<leftrightarrow> b) \<bullet> (k::\<kappa>) = k"
+  using supp_empty_kinds flip_fresh_fresh fresh_def by blast
+lemma perm_kind_tyvar[simp]: "((a::tyvar) \<leftrightarrow> b) \<bullet> (k::\<kappa>) = k"
+  using supp_empty_kinds flip_fresh_fresh fresh_def by blast
+lemma perm_kind_list_var[simp]: "((a::var) \<leftrightarrow> b) \<bullet> (ks::\<kappa> list) = ks"
+  by (induction ks) auto
+lemma perm_kind_list_tyvar[simp]: "((a::tyvar) \<leftrightarrow> b) \<bullet> (ks::\<kappa> list) = ks"
+  by (induction ks) auto
 
 end

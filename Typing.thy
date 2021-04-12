@@ -12,7 +12,11 @@ inductive Ax :: "\<Delta> \<Rightarrow> bool" ("\<turnstile> _")
 
 | Ax_Data: "\<lbrakk> \<turnstile> \<Delta> ; \<nexists>k. AxData T k \<in> set \<Delta> \<rbrakk> \<Longrightarrow> \<turnstile> AxData T \<kappa> # \<Delta>"
 
+<<<<<<< HEAD
 | Ax_Ctor: "\<lbrakk> [] , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; ctor_type \<tau> = Some T ; \<nexists>t. AxCtor D t \<in> set \<Delta> \<rbrakk> \<Longrightarrow> \<turnstile> AxCtor D \<tau> # \<Delta>"
+=======
+| Ax_Ctor: "\<lbrakk> [] , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; ctor_type \<tau> = Some (T, ks, tys) ; atom D \<sharp> \<Delta> \<rbrakk> \<Longrightarrow> \<turnstile> AxCtor D \<tau> # \<Delta>"
+>>>>>>> 9b53bd3 (WIP)
 
 (* ------------------------------ *)
 
@@ -36,7 +40,8 @@ inductive Ax :: "\<Delta> \<Rightarrow> bool" ("\<turnstile> _")
 
 equivariance Ax
 
-inductive Tm :: "\<Gamma> \<Rightarrow> \<Delta> \<Rightarrow> term \<Rightarrow> \<tau> \<Rightarrow> bool" ("_ , _ \<turnstile> _ : _" 50) where
+inductive Tm :: "\<Gamma> \<Rightarrow> \<Delta> \<Rightarrow> term \<Rightarrow> \<tau> \<Rightarrow> bool" ("_ , _ \<turnstile> _ : _" 50) and
+          Alts :: "\<Gamma> \<Rightarrow> \<Delta> \<Rightarrow> data_name \<Rightarrow> \<tau> list \<Rightarrow> \<tau> \<Rightarrow> alt_list \<Rightarrow> \<tau> \<Rightarrow> bool" where
   Tm_Var: "\<lbrakk> \<Delta> \<turnstile> \<Gamma> ; BVar x \<tau> \<in> \<Gamma> \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> (Var x) : \<tau>"
 
 | Tm_Abs: "BVar x \<tau>1 # \<Gamma> , \<Delta> \<turnstile> e : \<tau>2 \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> (\<lambda> x : \<tau>1 . e) : (\<tau>1 \<rightarrow> \<tau>2)"
@@ -51,9 +56,16 @@ inductive Tm :: "\<Gamma> \<Rightarrow> \<Delta> \<Rightarrow> term \<Rightarrow
 
 | Tm_Let: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e1 : \<tau>1 ; BVar x \<tau>1 # \<Gamma> , \<Delta> \<turnstile> e2 : \<tau>2 \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Let x \<tau>1 e1 e2 : \<tau>2"
 
-| Tm_Case: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e : \<tau>1 ; head_data \<tau>1 = Some T ; \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; exhaustive alts \<Delta> T ;
-    \<forall>m\<in>set_alt_list alts.  True
-  \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Case e alts : \<tau>"
+| Tm_Case: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e : \<tau>1 ; head_data \<tau>1 = Some (T, \<sigma>s) ; \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ;
+             exhaustive alts \<Delta> T ; Alts \<Gamma> \<Delta> T \<sigma>s \<tau>1 alts \<tau> \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Case e alts : \<tau>"
+
+| Alts_Nil: "Alts _ _ _ _ _ ANil _"
+
+| Alts_Var: "\<lbrakk> BVar x \<tau>1#\<Gamma>, \<Delta> \<turnstile> e : \<tau> ; Alts \<Gamma> \<Delta> T \<sigma>s \<tau>1 alts \<tau> \<rbrakk> \<Longrightarrow> Alts \<Gamma> \<Delta> T \<sigma>s \<tau>1 (ACons (MatchVar x e) alts) \<tau>"
+
+| Alts_Ctor: "\<lbrakk> AxCtor K cty \<in> set \<Delta> ; ctor_type cty = Some (T, ks, args) ; length ks = length tys ;
+              length args = length vals ; (zip_with BVar vals args) @ (zip_with BTyVar tys ks) @ \<Gamma>, \<Delta> \<turnstile> e : \<tau> ;  Alts \<Gamma> \<Delta> T \<sigma>s \<tau>1 alts \<tau> 
+              \<rbrakk> \<Longrightarrow> Alts \<Gamma> \<Delta> T \<sigma>s \<tau>1 (ACons (MatchCtor K tys vals e) alts) \<tau>"
 
 equivariance Tm
 

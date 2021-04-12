@@ -99,4 +99,7 @@ lemma fresh_filter: "a = b \<or> atom a \<sharp> xs \<Longrightarrow> atom a \<s
 lemma Projl_permute: "\<exists>y. f = Inl y \<Longrightarrow> p \<bullet> projl f = projl (p \<bullet> f)" by auto
 lemma Projr_permute: "\<exists>y. f = Inr y \<Longrightarrow> p \<bullet> projr f = projr (p \<bullet> f)" by auto
 
+lemma pair3_eqvt[simp]: "(a \<leftrightarrow> b) \<bullet> (x, y, z) = ((a \<leftrightarrow> b) \<bullet> x, (a \<leftrightarrow> b) \<bullet> y, (a \<leftrightarrow> b) \<bullet> z)"
+  by (simp split: prod.splits)
+
 end

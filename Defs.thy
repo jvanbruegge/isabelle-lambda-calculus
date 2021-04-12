@@ -42,15 +42,13 @@ proof goal_cases
 qed (auto simp: eqvt_def head_ctor_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
-nominal_function head_data :: "\<tau> \<Rightarrow> data_name option" where
+nominal_function head_data :: "\<tau> \<Rightarrow> (data_name * \<tau> list) option" where
   "head_data (TyVar _) = None"
-| "head_data (TyData T) = Some T"
+| "head_data (TyData T) = Some (T, [])"
 | "head_data TyArrow = None"
-| "head_data (TyApp (TyData T) _) = Some T"
-| "head_data (TyApp (TyVar _) _) = None"
-| "head_data (TyApp TyArrow _) = None"
-| "head_data (TyApp (TyApp _ _) _) = None"
-| "head_data (TyApp (TyForall _ _ _) _) = None"
+| "head_data (TyApp \<tau>1 \<tau>2) = (case head_data \<tau>1 of
+    Some (T, xs) \<Rightarrow> Some (T, xs @ [\<tau>2])
+  | None \<Rightarrow> None)"
 | "head_data (TyForall _ _ _) = None"
 proof goal_cases
   case (3 P x)
@@ -59,7 +57,7 @@ proof goal_cases
     case (TyApp \<tau>1 \<tau>2)
     then show ?thesis using 3 by (cases \<tau>1 rule: \<tau>.exhaust) auto
   qed
-qed (auto simp: eqvt_def head_data_graph_aux_def)
+qed (auto simp: eqvt_def head_data_graph_aux_def split!: option.splits)
 nominal_termination (eqvt) by lexicographic_order
 
 nominal_function set_alt_list :: "alt_list \<Rightarrow> alt set" where
@@ -76,7 +74,7 @@ nominal_function ctor_data_app :: "\<tau> \<Rightarrow> (data_name * tyvar list)
 | "ctor_data_app (TyData T) = Some (T, [])"
 | "ctor_data_app TyArrow = None"
 | "ctor_data_app (TyApp \<tau>1 (TyVar a)) = (case ctor_data_app \<tau>1 of
-    Some (T, s) \<Rightarrow> Some (T, a#s)
+    Some (T, tys) \<Rightarrow> Some (T, a#tys)
   | None \<Rightarrow> None)"
 | "ctor_data_app (TyApp _ (TyData _)) = None"
 | "ctor_data_app (TyApp _ TyArrow) = None"
@@ -84,7 +82,7 @@ nominal_function ctor_data_app :: "\<tau> \<Rightarrow> (data_name * tyvar list)
 | "ctor_data_app (TyApp _ (TyForall _ _ _)) = None"
 | "ctor_data_app (TyForall _ _ _) = None"
 proof goal_cases
-  case 1
+case 1
   then show ?case by (auto simp: eqvt_def ctor_data_app_graph_aux_def split!: option.splits)
 next
   case (3 P x)
@@ -92,7 +90,7 @@ next
   proof (cases x rule: \<tau>.exhaust)
     case (TyApp \<tau>1 \<tau>2)
     then show ?thesis using 3 by (cases \<tau>2 rule: \<tau>.exhaust) auto
-  qed (auto simp: 3)
+  qed auto
 qed auto
 nominal_termination (eqvt) by lexicographic_order
 
@@ -112,38 +110,38 @@ nominal_function ctor_type_app :: "\<tau> \<Rightarrow> (data_name * tyvar list)
 | "ctor_type_app (TyForall _ _ _) = None"
 proof goal_cases
   case (3 P x)
-  show ?case using 3(1-3,13)
+  then show ?case
   proof (cases x rule: \<tau>.exhaust)
     case outer: (TyApp \<tau>1 \<tau>2)
-    then show ?thesis using 3(9-12)
+    then show ?thesis using 3
     proof (cases \<tau>1 rule: \<tau>.exhaust)
-      case inner: (TyApp \<tau>1' \<tau>2')
-      then show ?thesis using outer 3(4-8) by (cases \<tau>1' rule: \<tau>.exhaust) blast+
-    qed blast+
-  qed blast+
+      case (TyApp \<sigma>1 \<sigma>2)
+      then show ?thesis using outer 3 by (cases \<sigma>1 rule: \<tau>.exhaust) auto
+    qed auto
+  qed auto
 next
   case (74 a k e \<tau>1 \<tau>2 a k e \<tau>1 \<tau>2)
-  then show ?case by (simp add: 74)
+  then show ?case by presburger
 next
   case (92 a k e \<tau>2 a k e \<tau>2)
-  then show ?case by (simp add: 92)
+  then show ?case by presburger
 qed (auto simp: eqvt_def ctor_type_app_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
-nominal_function ctor_type_forall :: "\<tau> \<Rightarrow> (data_name * tyvar list) option" where
+nominal_function ctor_type_forall :: "\<tau> \<Rightarrow> (data_name * tyvar list * \<kappa> list) option" where
   "ctor_type_forall (TyVar _) = None"
-| "ctor_type_forall (TyData T) = Some (T, [])"
+| "ctor_type_forall (TyData T) = Some (T, [], [])"
 | "ctor_type_forall TyArrow = None"
-| "ctor_type_forall (TyApp \<tau>1 \<tau>2) = ctor_type_app (TyApp \<tau>1 \<tau>2)"
-| "ctor_type_forall (TyForall a _ e) = (case ctor_type_forall e of
-    Some (T, s) \<Rightarrow> (if a \<in> set s then Some (T, filter (\<lambda>x. x \<noteq> a) s) else None)
-  | None \<Rightarrow> None)"
+| "ctor_type_forall (TyApp \<tau>1 \<tau>2) = (case ctor_type_app (TyApp \<tau>1 \<tau>2) of Some (T, tys) \<Rightarrow> Some (T, tys, []) | None \<Rightarrow> None)"
+| "ctor_type_forall (TyForall a k e) = (case ctor_type_forall e of
+    Some (T, xs, ks) \<Rightarrow> (if a \<in> set xs then Some (T, filter (\<lambda>x. x \<noteq> a) xs, k#ks) else None)
+  | _ \<Rightarrow> None)"
 proof goal_cases
   case 1
   then show ?case by (auto simp: eqvt_def ctor_type_forall_graph_aux_def split!: option.splits list.splits)
 next
   case (3 P x)
-  then show ?case by (cases x rule: \<tau>.exhaust)
+  then show ?case by (cases x rule: \<tau>.exhaust) auto
 next
   case (18 a k e a' k' e')
   obtain c::tyvar where P: "atom c \<sharp> (a, e, a', e', ctor_type_forall_sumC e, ctor_type_forall_sumC e')" by (rule obtain_fresh)
@@ -154,9 +152,10 @@ next
   then show ?case
   proof (cases "ctor_type_forall_sumC e")
     case (Some t)
-    then obtain T s where P1: "t = (T, s)" by fastforce
-    from Some obtain T' s' where P2: "ctor_type_forall_sumC e' = Some (T', s')" using 3 by auto
-    have "T = T'" using "2" P1 P2 Some Some_eqvt option.inject perm_data_name_tyvar by auto
+    then obtain T s ks where P1: "t = (T, s, ks)" by (metis prod.exhaust)
+    from Some obtain T' s' ks' where P2: "ctor_type_forall_sumC e' = Some (T', s', ks')" using 3 by auto
+    then have pairs: "(a \<leftrightarrow> c) \<bullet> (T, s, ks) = (a' \<leftrightarrow> c) \<bullet> (T', s', ks')" using 2 P1 Some Some_eqvt option.inject by simp
+    from pairs have "T = T'" "ks = ks'" by auto
     have same: "(a \<leftrightarrow> c) \<bullet> s = (a' \<leftrightarrow> c) \<bullet> s'" using "2" P1 P2 Some by auto
     have x: "a \<in> set s \<longleftrightarrow> a' \<in> set s'" by (metis flip_at_simps(2) mem_permute_iff permute_flip_cancel same set_eqvt)
     have 4: "atom c \<sharp> s" using c(5) Some P1 fresh_Some fresh_Pair by metis
@@ -167,19 +166,26 @@ next
     also have "... = filter (\<lambda>x. x \<noteq> c) ((a' \<leftrightarrow> c) \<bullet> s')" using same by argo
     also have "... = (a' \<leftrightarrow> c) \<bullet> filter (\<lambda>x. x \<noteq> a') s'" by simp
     also have "... = filter (\<lambda>x. x \<noteq> a') s'" using 6 flip_fresh_fresh by blast
-    finally have 9: "Some (T, filter (\<lambda>x. x \<noteq> a) s) = Some (T', filter (\<lambda>x. x \<noteq> a') s')" using \<open>T = T'\<close> by blast
-    then show ?thesis using Some P1 P2 x by simp
+    finally have 9: "Some (T, filter (\<lambda>x. x \<noteq> a) s, ks) = Some (T', filter (\<lambda>x. x \<noteq> a') s', ks')" using \<open>T = T'\<close> \<open>ks = ks'\<close> by blast
+    then show ?thesis
+    proof (cases "a \<in> set s")
+      case True
+      then show ?thesis using Some P1 P2 x 18(5) 9 by simp
+    next
+      case False
+      then show ?thesis using P1 P2 Some x by force
+    qed  
   qed simp
 qed auto
 nominal_termination (eqvt) by lexicographic_order
 
 (* This function checks if a type has the form \<forall>[a:k]. [\<tau>] \<rightarrow> T [a] *)
-nominal_function ctor_type :: "\<tau> \<Rightarrow> data_name option" where
+nominal_function ctor_type :: "\<tau> \<Rightarrow> (data_name * \<kappa> list) option" where
   "ctor_type (TyVar a) = None"
-| "ctor_type (TyData T) = Some T"
+| "ctor_type (TyData T) = Some (T, [])"
 | "ctor_type TyArrow = None"
-| "ctor_type (TyApp \<tau>1 \<tau>2) = (case ctor_type_app (TyApp \<tau>1 \<tau>2) of Some (T, []) \<Rightarrow> Some T | _ \<Rightarrow> None)"
-| "ctor_type (TyForall a k e) = (case ctor_type_forall (TyForall a k e) of Some (T, []) \<Rightarrow> Some T | _ \<Rightarrow> None)"
+| "ctor_type (TyApp \<tau>1 \<tau>2) = (case ctor_type_app (TyApp \<tau>1 \<tau>2) of Some (T, []) \<Rightarrow> Some (T, []) | _ \<Rightarrow> None)"
+| "ctor_type (TyForall a k e) = (case ctor_type_forall (TyForall a k e) of Some (T, [], ks) \<Rightarrow> Some (T, k#ks) | _ \<Rightarrow> None)"
 proof goal_cases
   case 1
   then show ?case by (auto simp: eqvt_def ctor_type_graph_aux_def split!: option.splits list.splits)
@@ -188,17 +194,33 @@ next
   then show ?case by (cases x rule: \<tau>.exhaust)
 next
   case (18 a k e a' k' e')
-  then show ?case by (simp add: 18)
+  have "(case ctor_type_forall (\<forall> a' : k' . e') of None \<Rightarrow> None | Some (d, [], ks) \<Rightarrow> Some (d, k # ks) | Some (d, t # x, ks) \<Rightarrow> Map.empty x) = (case ctor_type_forall (\<forall> a' : k' . e') of None \<Rightarrow> None | Some (d, [], ks) \<Rightarrow> Some (d, k' # ks) | Some (d, t # x, ks) \<Rightarrow> Map.empty x)"
+    using "18" by fastforce
+  then show ?case
+    by (simp add: "18")
 qed auto
 nominal_termination (eqvt) by lexicographic_order
 
 abbreviation exhaustive :: "alt_list \<Rightarrow> \<Delta> \<Rightarrow> data_name \<Rightarrow> bool" where
   "exhaustive alts \<Delta> T \<equiv>
     (\<nexists>x e. MatchVar x e \<in> set_alt_list alts) \<longrightarrow>
-      (\<forall>D \<tau>.
-          (AxCtor D \<tau> \<in> set \<Delta> \<and> ctor_type \<tau> = Some T) \<longrightarrow>
+      (\<forall>D \<tau> ks.
+          (AxCtor D \<tau> \<in> set \<Delta> \<and> ctor_type \<tau> = Some (T, ks)) \<longrightarrow>
           (\<exists>tys vals e. MatchCtor D tys vals e \<in> set_alt_list alts)
       )"
+
+nominal_function zip_with :: "('a::pt \<Rightarrow> 'b::pt \<Rightarrow> 'c::pt) \<Rightarrow> 'a list \<Rightarrow> 'b list \<Rightarrow> 'c list" where
+  "zip_with _ [] _ = []"
+| "zip_with _ _ [] = []"
+| "zip_with f (a#as) (b#bs) = f a b # zip_with f as bs"
+proof goal_cases
+  case (3 P x)
+  then show ?case sorry
+qed (auto simp: eqvt_def zip_with_graph_aux_def)
+nominal_termination (eqvt) by lexicographic_order
+
+lemma zip_with_length[simp]: "length (zip_with f as bs) = min (length as) (length bs)"
+  by (induction f as bs rule: zip_with.induct) auto
 
 nominal_function is_value :: "term => bool" where
   "is_value (Var x) = False"
