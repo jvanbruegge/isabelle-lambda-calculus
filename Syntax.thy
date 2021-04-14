@@ -47,7 +47,6 @@ and "alt_list" =
 | ACons "alt" "alt_list"
 and "alt" =
   MatchCtor "ctor_name" tys::"tyvar list" vals::"var list" e::"term" binds tys vals in e
-| MatchVar x::"var" e::"term" binds x in e
 
 nominal_datatype "binder" =
   BVar "var" "\<tau>"

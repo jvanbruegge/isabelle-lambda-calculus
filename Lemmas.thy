@@ -186,12 +186,9 @@ next
   case (8 y e x \<tau> e1 e2)
   then show ?case using fresh_PairD(2) fresh_at_base(2) by fastforce
 next
-  case (11 y e x t)
-  then show ?case using fresh_PairD(2) fresh_at_base(2) by fastforce
-next
-  case (12 tys vals e x D t)
+  case (11 tys vals e x D t)
   then have "atom x \<sharp> t" by (meson fresh_PairD(2) fresh_at_base(2) fresh_star_def term_alt_list_alt.fresh(11))
-  then show ?case using 12 by simp
+  then show ?case using 11 by simp
 qed auto
 
 lemma fresh_subst_type_same: "atom a \<sharp> \<sigma> \<Longrightarrow> subst_type \<sigma> \<tau> a = \<sigma>"
@@ -209,9 +206,9 @@ proof (induction e \<tau> a and alts \<tau> a and alt \<tau> a rule: subst_term_
   case (7 b \<tau> a k e2)
   then show ?case by (simp add: "7.hyps" fresh_Pair fresh_at_base(2))
 next
-  case (12 tys vals \<tau> a D e)
+  case (11 tys vals \<tau> a D e)
   then have "atom a \<sharp> e" by (meson fresh_PairD(2) fresh_at_base(2) fresh_star_def term_alt_list_alt.fresh(11))
-  then show ?case using 12 by auto
+  then show ?case using 11 by auto
 qed (auto simp: fresh_subst_type_same)
 
 lemma fresh_subst_context_same: "atom a \<sharp> \<Gamma> \<Longrightarrow> subst_context \<Gamma> \<tau> a = \<Gamma>"

@@ -27,6 +27,13 @@ proof goal_cases
 qed (auto simp: eqvt_def isin_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
+nominal_function set_alts :: "alt_list \<Rightarrow> alt fset" where
+  "set_alts ANil = {||}"
+| "set_alts (ACons alt alts) = finsert alt (set_alts alts)"
+       apply (auto simp: eqvt_def set_alts_graph_aux_def)
+  by (cases rule: term_alt_list_alt.exhaust(2)) auto
+nominal_termination (eqvt) by lexicographic_order
+
 nominal_function head_ctor :: "term \<Rightarrow> bool" where
   "head_ctor (Var _) = False"
 | "head_ctor (Lam _ _ _) = False"
@@ -202,12 +209,7 @@ qed auto
 nominal_termination (eqvt) by lexicographic_order
 
 abbreviation exhaustive :: "alt_list \<Rightarrow> \<Delta> \<Rightarrow> data_name \<Rightarrow> bool" where
-  "exhaustive alts \<Delta> T \<equiv>
-    (\<nexists>x e. MatchVar x e \<in> set_alt_list alts) \<longrightarrow>
-      (\<forall>D \<tau> ks.
-          (AxCtor D \<tau> \<in> set \<Delta> \<and> ctor_type \<tau> = Some (T, ks)) \<longrightarrow>
-          (\<exists>tys vals e. MatchCtor D tys vals e \<in> set_alt_list alts)
-      )"
+  "exhaustive alts \<Delta> T \<equiv> \<forall>D \<tau> ks. (AxCtor D \<tau> \<in> set \<Delta> \<and> ctor_type \<tau> = Some (T, ks)) \<longrightarrow> (\<exists>tys vals e. MatchCtor D tys vals e |\<in>| set_alts alts)"
 
 nominal_function zip_with :: "('a::pt \<Rightarrow> 'b::pt \<Rightarrow> 'c::pt) \<Rightarrow> 'a list \<Rightarrow> 'b list \<Rightarrow> 'c list" where
   "zip_with _ [] _ = []"
@@ -215,7 +217,12 @@ nominal_function zip_with :: "('a::pt \<Rightarrow> 'b::pt \<Rightarrow> 'c::pt)
 | "zip_with f (a#as) (b#bs) = f a b # zip_with f as bs"
 proof goal_cases
   case (3 P x)
-  then show ?case sorry
+  then obtain f xs ys where P: "x = (f, xs, ys)" by (metis prod.exhaust)
+  then show ?case using 3
+  proof (cases xs)
+    case (Cons a list)
+    then show ?thesis using 3 P by (cases ys) auto
+  qed simp
 qed (auto simp: eqvt_def zip_with_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
@@ -261,7 +268,6 @@ nominal_function (default "case_sum (\<lambda>x. Inl undefined) (case_sum (\<lam
 | "subst_alt_list ANil _ _ = ANil"
 | "subst_alt_list (ACons alt alts) e x = ACons (subst_alt alt e x) (subst_alt_list alts e x)"
 
-| "atom y \<sharp> (e, x) \<Longrightarrow> subst_alt (MatchVar y t) e x = MatchVar y (subst_term t e x)"
 | "set (map atom tys @ map atom vals) \<sharp>* (e, x) \<Longrightarrow> subst_alt (MatchCtor D tys vals t) e x = MatchCtor D tys vals (subst_term t e x)"
 proof (goal_cases)
 
@@ -308,31 +314,26 @@ proof (goal_cases)
     next
       case (Inr c)
       then obtain m e y where "c = (m, e, y)" by (metis prod.exhaust)
-      then show ?thesis using 3(11,12) Inr outer fresh_star_insert
+      then show ?thesis using 3 Inr outer fresh_star_insert
         apply (cases m rule: term_alt_list_alt.strong_exhaust(3)[of "(e, y)"])
-         apply auto
-        by blast
+        by auto
     qed
   qed
 next
-  case (54 y e x \<tau> e2 y' e' x' \<tau>' e2')
-  have "(\<lambda> y : \<tau> . subst_term e2 e x) = (\<lambda> y' : \<tau>' . subst_term e2' e' x')" using Abs_sumC[OF 54(5,6) eqvt_at_term[OF 54(1)] eqvt_at_term[OF 54(2)]] 54(7) by fastforce
+  case (49 y e x \<tau> e2 y' e' x' \<tau>' e2')
+  have "(\<lambda> y : \<tau> . subst_term e2 e x) = (\<lambda> y' : \<tau>' . subst_term e2' e' x')" using Abs_sumC[OF 49(5,6) eqvt_at_term[OF 49(1)] eqvt_at_term[OF 49(2)]] 49(7) by fastforce
   then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_def, symmetric, unfolded fun_eq_iff])
 next
-  case (61 y e x k e2 y' e' x' k' e2')
-  have "(\<Lambda> y : k . subst_term e2 e x) = (\<Lambda> y' : k' . subst_term e2' e' x')" using Abs_sumC[OF 61(5,6) eqvt_at_term[OF 61(1)] eqvt_at_term[OF 61(2)]] 61(7) by fastforce
+  case (55 y e x k e2 y' e' x' k' e2')
+  have "(\<Lambda> y : k . subst_term e2 e x) = (\<Lambda> y' : k' . subst_term e2' e' x')" using Abs_sumC[OF 55(5,6) eqvt_at_term[OF 55(1)] eqvt_at_term[OF 55(2)]] 55(7) by fastforce
   then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_def, symmetric, unfolded fun_eq_iff])
 next
-  case (67 y e x \<tau> e1 e2 y' e' x' \<tau>' e1' e2')
-  have "Let y \<tau> (subst_term e1 e x) (subst_term e2 e x) = Let y' \<tau>' (subst_term e1' e' x') (subst_term e2' e' x')" using Abs_sumC[OF 67(9,10) eqvt_at_term[OF 67(2)] eqvt_at_term[OF 67(4)]] 67(11) by fastforce
+  case (60 y e x \<tau> e1 e2 y' e' x' \<tau>' e1' e2')
+  have "Let y \<tau> (subst_term e1 e x) (subst_term e2 e x) = Let y' \<tau>' (subst_term e1' e' x') (subst_term e2' e' x')" using Abs_sumC[OF 60(9,10) eqvt_at_term[OF 60(2)] eqvt_at_term[OF 60(4)]] 60(11) by fastforce
   then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_def, symmetric, unfolded fun_eq_iff])
 next
-  case (79 y e x t y' e' x' t')
-  have "MatchVar y (subst_term t e x) = MatchVar y' (subst_term t' e' x')" using Abs_sumC[OF 79(5,6) eqvt_at_term[OF 79(1)] eqvt_at_term[OF 79(2)]] 79(7) by fastforce
-  then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_def, symmetric, unfolded fun_eq_iff])
-next
-  case (81 tys vals e x D t tys' vals' e' x' D' t')
-  have "MatchCtor D tys vals (subst_term t e x) = MatchCtor D' tys' vals' (subst_term t' e' x')" using Abs_sumC_star[OF 81(5,6) eqvt_at_term[OF 81(1)] eqvt_at_term[OF 81(2)]] 81(7) by fastforce
+  case (69 tys vals e x D t tys' vals' e' x' D' t')
+  have "MatchCtor D tys vals (subst_term t e x) = MatchCtor D' tys' vals' (subst_term t' e' x')" using Abs_sumC_star[OF 69(5,6) eqvt_at_term[OF 69(1)] eqvt_at_term[OF 69(2)]] 69(7) by fastforce
   then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_def, symmetric, unfolded fun_eq_iff])
 } qed (auto simp: eqvt_def subst_term_subst_alt_list_subst_alt_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
@@ -373,7 +374,6 @@ nominal_function (default "case_sum (\<lambda>x. Inl undefined) (case_sum (\<lam
 | "subst_alt_list_type ANil _ _ = ANil"
 | "subst_alt_list_type (ACons alt alts) \<tau> a = ACons (subst_alt_type alt \<tau> a) (subst_alt_list_type alts \<tau> a)"
 
-| "atom y \<sharp> (\<tau>, a) \<Longrightarrow> subst_alt_type (MatchVar y e) \<tau> a = MatchVar y (subst_term_type e \<tau> a)"
 | "set (map atom tys @ map atom vals) \<sharp>* (\<tau>, a) \<Longrightarrow> subst_alt_type (MatchCtor D tys vals e) \<tau> a = MatchCtor D tys vals (subst_term_type e \<tau> a)"
 proof goal_cases
 
@@ -420,31 +420,26 @@ proof goal_cases
     next
       case (Inr c)
       then obtain m e y where P: "c = (m, e, y)" by (metis prod.exhaust)
-      then show ?thesis using Inr outer 3(11,12)
-        apply (cases m rule: term_alt_list_alt.strong_exhaust(3)[of "(e, y)"]) apply simp
-        using fresh_star_insert by blast
+      then show ?thesis using Inr outer 3
+        apply (cases m rule: term_alt_list_alt.strong_exhaust(3)[of "(e, y)"]) by simp
     qed
   qed
 next
-  case (54 y \<tau> a \<tau>2 e2 y' \<tau>' a' \<tau>2' e2')
-  have "(\<lambda> y : subst_type \<tau>2 \<tau> a . subst_term_type e2 \<tau> a) = (\<lambda> y' : subst_type \<tau>2' \<tau>' a' . subst_term_type e2' \<tau>' a')" using Abs_sumC[OF 54(5,6) eqvt_at_term[OF 54(1)] eqvt_at_term[OF 54(2)]] 54(7) by fastforce
+  case (49 y \<tau> a \<tau>2 e2 y' \<tau>' a' \<tau>2' e2')
+  have "(\<lambda> y : subst_type \<tau>2 \<tau> a . subst_term_type e2 \<tau> a) = (\<lambda> y' : subst_type \<tau>2' \<tau>' a' . subst_term_type e2' \<tau>' a')" using Abs_sumC[OF 49(5,6) eqvt_at_term[OF 49(1)] eqvt_at_term[OF 49(2)]] 49(7) by fastforce
   then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
 next
-  case (61 b \<tau> a k e2 b' \<tau>' a' k' e2')
-  have "(\<Lambda> b : k . subst_term_type e2 \<tau> a) = (\<Lambda> b' : k' . subst_term_type e2' \<tau>' a')" using Abs_sumC[OF 61(5,6) eqvt_at_term[OF 61(1)] eqvt_at_term[OF 61(2)]] 61(7) by fastforce
+  case (55 b \<tau> a k e2 b' \<tau>' a' k' e2')
+  have "(\<Lambda> b : k . subst_term_type e2 \<tau> a) = (\<Lambda> b' : k' . subst_term_type e2' \<tau>' a')" using Abs_sumC[OF 55(5,6) eqvt_at_term[OF 55(1)] eqvt_at_term[OF 55(2)]] 55(7) by fastforce
   then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
 next
-  case (67 y \<tau> a \<tau>2 e1 e2 y' \<tau>' a' \<tau>2' e1' e2')
+  case (60 y \<tau> a \<tau>2 e1 e2 y' \<tau>' a' \<tau>2' e1' e2')
   have "Let y (subst_type \<tau>2 \<tau> a) (subst_term_type e1 \<tau> a) (subst_term_type e2 \<tau> a) = Let y' (subst_type \<tau>2' \<tau>' a') (subst_term_type e1' \<tau>' a') (subst_term_type e2' \<tau>' a')"
-    using Abs_sumC[OF 67(9,10) eqvt_at_term[OF 67(2)] eqvt_at_term[OF 67(4)]] 67(11) by fastforce
+    using Abs_sumC[OF 60(9,10) eqvt_at_term[OF 60(2)] eqvt_at_term[OF 60(4)]] 60(11) by fastforce
   then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
 next
-  case (79 y \<tau> a e y' \<tau>' a' e')
-  have "MatchVar y (subst_term_type e \<tau> a) = MatchVar y' (subst_term_type e' \<tau>' a')" using Abs_sumC[OF 79(5,6) eqvt_at_term[OF 79(1)] eqvt_at_term[OF 79(2)]] 79(7) by fastforce
-  then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
-next
-  case (81 tys vals \<tau> a D e tys' vals' \<tau>' a' D' e')
-  have "MatchCtor D tys vals (subst_term_type e \<tau> a) = MatchCtor D' tys' vals' (subst_term_type e' \<tau>' a')" using Abs_sumC_star[OF 81(5,6) eqvt_at_term[OF 81(1)] eqvt_at_term[OF 81(2)]] 81(7) by fastforce
+  case (69 tys vals \<tau> a D e tys' vals' \<tau>' a' D' e')
+  have "MatchCtor D tys vals (subst_term_type e \<tau> a) = MatchCtor D' tys' vals' (subst_term_type e' \<tau>' a')" using Abs_sumC_star[OF 69(5,6) eqvt_at_term[OF 69(1)] eqvt_at_term[OF 69(2)]] 69(7) by fastforce
   then show ?case by (auto simp: Abs_fresh_iff meta_eq_to_obj_eq[OF subst_term_type_def, symmetric, unfolded fun_eq_iff])
 } qed (auto simp: eqvt_def subst_term_type_subst_alt_list_type_subst_alt_type_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
