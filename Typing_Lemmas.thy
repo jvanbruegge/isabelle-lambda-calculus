@@ -135,16 +135,15 @@ qed simp_all
 lemma axiom_isin_same_kind: "\<lbrakk> AxData T k1 \<in> set (\<Delta>' @ AxData T k2 # \<Delta>) ; \<turnstile> (\<Delta>' @ AxData T k2 # \<Delta>) \<rbrakk> \<Longrightarrow> k1 = k2"
 proof (induction \<Delta>')
   case Nil
-  then have "atom T \<sharp> \<Delta>" by auto
-  then have "\<nexists>k. AxData T k \<in> set \<Delta>" by (metis (mono_tags, lifting) axiom.fresh(1) fresh_Cons fresh_append fresh_at_base(2) in_set_conv_decomp_first)
+  then have "\<nexists>k. AxData T k \<in> set \<Delta>" by auto
   then show ?case using Nil.prems(1) by auto
 next
   case (Cons a \<Delta>')
   then show ?case using axioms_valid(2)
   proof (cases a rule: axiom.exhaust)
     case (AxData T' k3)
-    then have "atom T' \<sharp> (\<Delta>' @ AxData T k2 # \<Delta>)" using Cons(3) by auto
-    then have "T' \<noteq> T" by (simp add: fresh_Cons fresh_append fresh_at_base(2))
+    then have "\<nexists>k. AxData T' k \<in> set (\<Delta>' @ AxData T k2 # \<Delta>)" using Cons(3) by fastforce
+    then have "T' \<noteq> T" by auto
     then show ?thesis using Cons AxData by auto
   qed fastforce
 qed
@@ -152,16 +151,15 @@ qed
 lemma axiom_isin_same_type: "\<lbrakk> AxCtor D \<tau>1 \<in> set (\<Delta>' @ AxCtor D \<tau>2 # \<Delta>) ; \<turnstile> (\<Delta>' @ AxCtor D \<tau>2 # \<Delta>) \<rbrakk> \<Longrightarrow> \<tau>1 = \<tau>2"
 proof (induction \<Delta>')
   case Nil
-  then have "atom D \<sharp> \<Delta>" by auto
-  then have "\<nexists>t. AxCtor D t \<in> set \<Delta>" by (metis (mono_tags, lifting) axiom.fresh(2) fresh_Cons fresh_append fresh_at_base(2) in_set_conv_decomp_first)
+  then have "\<nexists>t. AxCtor D t \<in> set \<Delta>" by auto
   then show ?case using Nil(1) by auto
 next
   case (Cons a \<Delta>')
   then show ?case
   proof (cases a rule: axiom.exhaust)
     case (AxCtor D' \<tau>')
-    then have "atom D' \<sharp> (\<Delta>' @ AxCtor D \<tau>2 # \<Delta>)" using Cons(3) by auto
-    then have "D' \<noteq> D" by (simp add: fresh_Cons fresh_append fresh_at_base(2))
+    then have "\<nexists>t. AxCtor D' t \<in> set (\<Delta>' @ AxCtor D \<tau>2 # \<Delta>)" using Cons(3) by fastforce
+    then have "D' \<noteq> D" by auto
     then show ?thesis using AxCtor Cons axioms_valid_aux(2) set_ConsD by auto
   qed auto
 qed

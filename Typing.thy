@@ -10,9 +10,9 @@ inductive Ax :: "\<Delta> \<Rightarrow> bool" ("\<turnstile> _")
 
   Ax_Empty: "\<turnstile> []"
 
-| Ax_Data: "\<lbrakk> \<turnstile> \<Delta> ; atom T \<sharp> \<Delta> \<rbrakk> \<Longrightarrow> \<turnstile> AxData T \<kappa> # \<Delta>"
+| Ax_Data: "\<lbrakk> \<turnstile> \<Delta> ; \<nexists>k. AxData T k \<in> set \<Delta> \<rbrakk> \<Longrightarrow> \<turnstile> AxData T \<kappa> # \<Delta>"
 
-| Ax_Ctor: "\<lbrakk> [] , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; ctor_type \<tau> = Some T ; atom D \<sharp> \<Delta> \<rbrakk> \<Longrightarrow> \<turnstile> AxCtor D \<tau> # \<Delta>"
+| Ax_Ctor: "\<lbrakk> [] , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; ctor_type \<tau> = Some T ; \<nexists>t. AxCtor D t \<in> set \<Delta> \<rbrakk> \<Longrightarrow> \<turnstile> AxCtor D \<tau> # \<Delta>"
 
 (* ------------------------------ *)
 

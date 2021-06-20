@@ -5,8 +5,19 @@ begin
 atom_decl "var"
 atom_decl "tyvar"
 
-atom_decl "data_name"
-atom_decl "ctor_name"
+typedef data_name = "{ x. x \<in> (UNIV :: string set) }" by simp
+typedef ctor_name = "{ x. x \<in> (UNIV :: string set) }" by simp
+
+instantiation data_name :: pure
+begin
+  definition "p \<bullet> (x::data_name) = x"
+  instance by (standard, auto simp: permute_data_name_def)
+end
+instantiation ctor_name :: pure
+begin
+  definition "p \<bullet> (x::ctor_name) = x"
+  instance by (standard, auto simp: permute_ctor_name_def)
+end
 
 nominal_datatype "\<kappa>" =
   Star ("\<star>")
@@ -42,6 +53,8 @@ nominal_datatype "axiom" =
 type_synonym "\<Gamma>" = "binder list"
 type_synonym "\<Delta>" = "axiom list"
 
+declare pure_fresh[simp]
+
 lemma no_vars_in_kinds[simp]: "atom (x :: var) \<sharp> (k :: \<kappa>)"
   by (induction k rule: \<kappa>.induct) auto
 lemma no_vars_in_ty[simp]: "atom (x :: var) \<sharp> (ty :: \<tau>)"
@@ -64,12 +77,13 @@ lemma supp_empty_kinds[simp]: "supp (k :: \<kappa>) = {}"
   by (induction k rule: \<kappa>.induct) (auto simp: \<kappa>.supp)
 
 lemma perm_data_name_var[simp]: "((a::var) \<leftrightarrow> b) \<bullet> (T :: data_name) = T"
-  using flip_fresh_fresh by force
+  using flip_fresh_fresh pure_fresh by blast
 lemma perm_data_name_tyvar[simp]: "((a::tyvar) \<leftrightarrow> b) \<bullet> (T :: data_name) = T"
-  using flip_fresh_fresh by force
+  using flip_fresh_fresh pure_fresh by blast
 lemma perm_ctor_name_var[simp]: "((a::var) \<leftrightarrow> b) \<bullet> (D :: ctor_name) = D"
-  using flip_fresh_fresh by force
+  using flip_fresh_fresh pure_fresh by blast
 lemma perm_ctor_name_tyvar[simp]: "((a::tyvar) \<leftrightarrow> b) \<bullet> (D :: ctor_name) = D"
-  using flip_fresh_fresh by force
+  using flip_fresh_fresh pure_fresh by blast
+
 
 end
