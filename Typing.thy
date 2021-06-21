@@ -57,10 +57,12 @@ inductive Tm :: "\<Gamma> \<Rightarrow> \<Delta> \<Rightarrow> term \<Rightarrow
 | Tm_Let: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e1 : \<tau>1 ; BVar x \<tau>1 # \<Gamma> , \<Delta> \<turnstile> e2 : \<tau>2 \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Let x \<tau>1 e1 e2 : \<tau>2"
 
 | Tm_Case: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e : \<tau>1 ; head_data \<tau>1 = Some (T, \<sigma>s) ; \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; exhaustive alts \<Delta> T ;
-            \<forall>e |\<in>| set_alts alts. (\<exists>K tys vals e' cty ks.
-                e = MatchCtor K tys vals e' \<and>
+            \<forall>alt |\<in>| set_alts alts. (\<exists>K tys vals e' cty ks args \<Gamma>'.
+                alt = MatchCtor K tys vals e' \<and>
                 AxCtor K cty \<in> set \<Delta> \<and> ctor_type cty = Some (T, ks) \<and>
-                \<Gamma> , \<Delta> \<turnstile> e' : \<tau>
+                subst_ctor cty \<sigma>s = Some args \<and>
+                \<Gamma>' = zip_with BVar vals args @ zip_with BTyVar tys ks @ \<Gamma> \<and>
+                \<Gamma>' , \<Delta> \<turnstile> e' : \<tau>
               ) \<rbrakk> \<Longrightarrow> \<Gamma> , \<Delta> \<turnstile> Case e alts : \<tau>"
 
 equivariance Tm
@@ -101,20 +103,6 @@ lemma Ty_induct[consumes 1, case_names Var App Data Arrow Forall]:
 shows "P \<Gamma> \<Delta> \<tau> \<kappa>"
   using Ax_Ctx_Ty.inducts(3)[OF assms(1), of "\<lambda>a. True" P "\<lambda>a b. True"] assms(2-6) by simp
 
-lemma Tm_induct[consumes 1, case_names Var Abs App TAbs TApp Ctor Let Case]:
-  fixes P::"\<Gamma> \<Rightarrow> \<Delta> \<Rightarrow> term \<Rightarrow> \<tau> \<Rightarrow> bool"
-  assumes "\<Gamma> , \<Delta> \<turnstile> e : \<tau>"
-  and "\<And>\<Gamma> \<Delta> x \<tau>. \<lbrakk> \<Delta> \<turnstile> \<Gamma> ; BVar x \<tau> \<in> \<Gamma> \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (Var x) \<tau>"
-  and "\<And>x \<tau>1 \<Gamma> \<Delta> e \<tau>2. \<lbrakk> BVar x \<tau>1 # \<Gamma> , \<Delta> \<turnstile> e : \<tau>2 ; P (BVar x \<tau>1 # \<Gamma>) \<Delta> e \<tau>2 \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (\<lambda> x : \<tau>1 . e) (\<tau>1 \<rightarrow> \<tau>2)"
-  and "\<And>\<Gamma> \<Delta> e1 \<tau>1 \<tau>2 e2. \<lbrakk> \<Gamma> , \<Delta> \<turnstile> e1 : \<tau>1 \<rightarrow> \<tau>2 ; P \<Gamma> \<Delta> e1 (\<tau>1 \<rightarrow> \<tau>2) ; \<Gamma> , \<Delta> \<turnstile> e2 : \<tau>1 ; P \<Gamma> \<Delta> e2 \<tau>1 \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (App e1 e2) \<tau>2"
-  and "\<And>a k \<Gamma> \<Delta> e \<sigma>. \<lbrakk> BTyVar a k # \<Gamma> , \<Delta> \<turnstile> e : \<sigma> ; P (BTyVar a k # \<Gamma>) \<Delta> e \<sigma> \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (\<Lambda> a : k . e) (\<forall> a : k . \<sigma>)"
-  and "\<And>\<Gamma> \<Delta> e a k \<sigma> \<tau>. \<lbrakk> \<Gamma> , \<Delta> \<turnstile> e : \<forall> a : k . \<sigma> ; P \<Gamma> \<Delta> e (\<forall> a : k . \<sigma>) ; \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : k \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (TApp e \<tau>) \<sigma>[\<tau>/a]"
-  and "\<And>\<Delta> \<Gamma> D \<tau>. \<lbrakk> \<Delta> \<turnstile> \<Gamma> ; AxCtor D \<tau> \<in> set \<Delta> \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (Ctor D) \<tau>"
-  and "\<And>\<Gamma> \<Delta> e1 \<tau>1 x e2 \<tau>2. \<lbrakk> \<Gamma> , \<Delta> \<turnstile> e1 : \<tau>1 ; P \<Gamma> \<Delta> e1 \<tau>1 ; BVar x \<tau>1 # \<Gamma> , \<Delta> \<turnstile> e2 : \<tau>2 ; P (BVar x \<tau>1 # \<Gamma>) \<Delta> e2 \<tau>2 \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (Let x \<tau>1 e1 e2) \<tau>2"
-  and "\<And>\<Gamma> \<Delta> e \<tau>1 T \<sigma>s \<tau> alts. \<lbrakk> \<Gamma> , \<Delta> \<turnstile> e : \<tau>1 ; P \<Gamma> \<Delta> e \<tau>1 ; head_data \<tau>1 = Some (T, \<sigma>s) ; \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<star> ; exhaustive alts \<Delta> T ; Alts \<Gamma> \<Delta> T \<sigma>s \<tau>1 alts \<tau> \<rbrakk> \<Longrightarrow> P \<Gamma> \<Delta> (Case e alts) \<tau>"
-shows "P \<Gamma> \<Delta> e \<tau>"
-  using Tm_Alts.inducts(1)[OF assms(1), of _ "\<lambda>_ _ _ _ _ _ _. True"] assms(2-9) by auto
-
 (* axiom validity *)
 lemma axioms_valid_aux:
   shows "\<Delta> \<turnstile> \<Gamma> \<longrightarrow> \<turnstile> \<Delta>"
@@ -129,7 +117,7 @@ lemma axioms_valid_context: "\<Delta> \<turnstile> \<Gamma> \<Longrightarrow> \<
 lemma axioms_valid_ty: "\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : k \<Longrightarrow> \<turnstile> \<Delta>"
   using axioms_valid_aux by simp
 lemma axioms_valid_tm: "\<Gamma> , \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> \<turnstile> \<Delta>"
-  by (induction \<Gamma> \<Delta> e \<tau> rule: Tm_induct) (auto simp: axioms_valid_context axioms_valid_ty)
+  by (induction \<Gamma> \<Delta> e \<tau> rule: Tm.induct) (auto simp: axioms_valid_context axioms_valid_ty)
 lemmas axioms_valid = axioms_valid_context axioms_valid_ty axioms_valid_tm
 
 lemma Ctx_Ty_induct_split[case_names Ctx_Empty Ctx_TyVar Ctx_Var Ty_Var Ty_App Ty_Data Ty_Arrow Ty_Forall]:
@@ -198,10 +186,8 @@ qed
 lemma context_valid_ty: "\<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : \<kappa> \<Longrightarrow> \<Delta> \<turnstile> \<Gamma>"
   by (induction \<Gamma> \<Delta> \<tau> \<kappa> rule: Ty_induct) auto
 lemma context_valid_tm: "\<Gamma> , \<Delta> \<turnstile> e : \<tau> \<Longrightarrow> \<Delta> \<turnstile> \<Gamma>"
-  by (induction \<Gamma> \<Delta> e \<tau> rule: Tm_induct) (auto simp: context_valid_ty)
+  by (induction \<Gamma> \<Delta> e \<tau> rule: Tm.induct) (auto simp: context_valid_ty)
 lemmas context_valid = context_valid_ty context_valid_tm
-
-
 
 (* \<lbrakk> \<Gamma> \<turnstile> e : t ; atom x \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom x \<sharp> e *)
 lemma fresh_in_context_ty: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile>\<^sub>t\<^sub>y \<tau> : k ; atom (a::tyvar) \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom a \<sharp> \<tau>"
@@ -243,15 +229,38 @@ qed auto
 
 
 
+lemma fresh_in_context_term_var: "\<lbrakk> \<Gamma> , \<Delta> \<turnstile> e : \<tau> ; atom (y::var) \<sharp> \<Gamma> \<rbrakk> \<Longrightarrow> atom y \<sharp> e"
+proof (induction \<Gamma> \<Delta> e \<tau> rule: Tm.induct)
+  case (Tm_Var \<Delta> \<Gamma> x \<tau>)
+  then show ?case by (metis fresh_at_base(2) fresh_not_isin_var term_alt_list_alt.fresh(1))
+next
+  case (Tm_Abs x \<tau>1 \<Gamma> \<Delta> e \<tau>2)
+  then show ?case by (metis binder.fresh(1) fresh_Cons fresh_at_base(2) insert_iff list.simps(15) no_vars_in_ty term_alt_list_alt.fresh(5))
+next
+  case (Tm_Let \<Gamma> \<Delta> e1 \<tau>1 x e2 \<tau>2)
+  then show ?case using fresh_Cons by fastforce
+next
+  case (Tm_Case \<Gamma> \<Delta> e \<tau>1 T \<sigma>s \<tau> alts)
+  from Tm_Case(6) have "atom y \<sharp> set_alts alts"
+  proof (induction alts rule: term_alt_list_alt.inducts(2)[of "\<lambda>_. True" _ "\<lambda>_. True"])
+    case (ACons alt x2)
+    then have 1: "atom y \<sharp> set_alts x2" by simp
+    have "atom y \<sharp> alt"
+    proof -
+      obtain K tys vals e' cty ks args \<Gamma>'' where a: "alt = MatchCtor K tys vals e'" "AxCtor K cty \<in> set \<Delta>" "ctor_type cty = Some (T, ks)"
+          "subst_ctor cty \<sigma>s = Some args" "\<Gamma>'' = zip_with BVar vals args @ zip_with BTyVar tys ks @ \<Gamma>" "\<Gamma>'' , \<Delta> \<turnstile> e' : \<tau>" "atom y \<sharp> \<Gamma>'' \<longrightarrow> atom y \<sharp> e'"
+        using ACons(3) by auto
+
+      show ?thesis sorry
+    qed
+    then show ?case using 1 fresh_finsert by auto
+  qed (auto simp: fresh_empty_fset)
+  then have "atom y \<sharp> alts" by (induction alts rule: term_alt_list_alt.inducts(2)) (auto simp: fresh_finsert)
+  then show ?case using Tm_Case by simp
+qed (auto simp: fresh_Cons)
 
 
 
-lemma fresh_in_context_term_var:
-  assumes "atom (x::var) \<sharp> \<Gamma>"
-  shows "\<Gamma> , \<Delta> \<turnstile> e : \<tau> \<longrightarrow> atom x \<sharp> e"
-  and "Alts \<Gamma> \<Delta> T \<sigma>s \<tau>1 alts \<tau> \<longrightarrow> atom x \<sharp> alts"
-  and "Alt \<Gamma> \<Delta> T \<sigma> \<tau>1 alt \<tau> \<longrightarrow> atom x \<sharp> alt"
-proof (induction \<Gamma> \<Delta> e \<tau> and \<Gamma> \<Delta> T \<sigma>s \<tau>1 alts \<tau> and rule: Tm_Alts.induct)
 
 
 
@@ -267,11 +276,6 @@ proof (induction \<Gamma> \<Delta> e \<tau> and \<Gamma> \<Delta> T \<sigma>s \<
 
 
 
-
-
-
-
-thm Tm_Alts.induct[of "\<lambda>_ _ e _. atom x \<sharp> e" "\<lambda>_ _ _ _ _ alts _. atom x \<sharp> alts" \<Gamma> \<Delta> e \<tau> \<Gamma> \<Delta> T \<sigma> \<tau>1 alts \<tau>]
 
 
 
