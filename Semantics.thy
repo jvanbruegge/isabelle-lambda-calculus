@@ -47,7 +47,7 @@ next
   show ?case
   proof (rule ccontr)
     assume "\<not>beta_nf (TApp e \<tau>)"
-    then obtain e' where "TApp e \<tau> \<longrightarrow> e'" using beta_nf_def by blast
+    then obtain e' where "TApp e \<tau> \<longrightarrow> e'" using beta_nf_def (* by blast*)
     then show "False" using TApp head_ctor_is_value beta_nf_def by cases auto
   qed
 next

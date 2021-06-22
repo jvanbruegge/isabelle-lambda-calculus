@@ -173,6 +173,7 @@ lemma fresh_not_isin_tyvar: "atom a \<sharp> \<Gamma> \<Longrightarrow> \<not>is
 lemma fresh_not_isin_var: "atom x \<sharp> \<Gamma> \<Longrightarrow> \<not>isin (BVar x \<tau>) \<Gamma>"
   apply (induction \<Gamma>) apply simp
   by (metis (mono_tags, lifting) binder.fresh(1) binder.strong_exhaust fresh_Cons fresh_at_base(2) isin.simps(2) isin.simps(3))
+lemmas fresh_not_isin = fresh_not_isin_tyvar fresh_not_isin_var
 
 (* atom x \<sharp> t \<Longrightarrow> subst t' x t = t *)
 lemma fresh_subst_term_same:
@@ -253,5 +254,82 @@ lemma fv_supp_subset: "fv_\<tau> \<tau> \<subseteq> supp \<tau>"
 
 lemma head_ctor_is_value: "head_ctor e \<Longrightarrow> is_value e"
   by (induction e rule: term_alt_list_alt.inducts(1)) auto
+
+lemma strengthen_isin_tyvar: "isin (BTyVar a k) (\<Gamma>' @ BVar x \<tau> # \<Gamma>) \<Longrightarrow> isin (BTyVar a k) (\<Gamma>' @ \<Gamma>)"
+proof (induction \<Gamma>')
+  case (Cons a \<Gamma>')
+  then show ?case by (cases a rule: binder.exhaust) auto
+qed auto
+
+lemma isin_split: "isin bndr \<Gamma> \<Longrightarrow> \<exists>\<Gamma>1 \<Gamma>2. \<Gamma> = \<Gamma>1 @ bndr # \<Gamma>2"
+proof (induction \<Gamma>)
+  case (Cons a \<Gamma>)
+  then show ?case
+  proof (cases "a = bndr")
+    case True
+    then show ?thesis by blast
+  next
+    case False
+    then have "isin bndr \<Gamma>" using Cons(2)
+      by (cases a rule: binder.exhaust; cases bndr rule: binder.exhaust) auto
+    then show ?thesis using Cons(1) by (metis Cons_eq_appendI)
+  qed
+qed simp
+
+lemma supp_subst_type: "supp (subst_type \<tau> \<sigma> a) \<subseteq> (supp \<tau> - {atom a}) \<union> supp \<sigma>"
+proof (induction \<tau> \<sigma> a rule: subst_type.induct)
+  case (2 b \<tau> a)
+  then show ?case by (cases "b = a") (auto simp: supp_at_base \<tau>.supp(1))
+qed (auto simp: \<tau>.supp pure_supp)
+
+lemma supp_head_data: "head_data \<tau> = Some (T, \<sigma>s) \<Longrightarrow> supp \<sigma>s \<subseteq> supp \<tau>"
+proof (induction \<tau> arbitrary: \<sigma>s rule: head_data.induct)
+  case (2 T)
+  then show ?case using \<tau>.supp(2) pure_supp supp_Nil by auto
+next
+  case (4 \<tau>1 \<tau>2)
+  then obtain xs where P: "head_data \<tau>1 = Some (T, xs)" by (auto split!: option.splits)
+  then have 1: "supp xs \<subseteq> supp \<tau>1" by (rule 4(1))
+  from 4(2) P have "\<sigma>s = xs @ [\<tau>2]" by auto
+  then show ?case using 1 supp_append supp_Nil supp_Cons unfolding \<tau>.supp(4) by blast
+qed auto
+
+lemma supp_zip_with_var: "supp (zip_with BVar vals args) \<subseteq> supp vals \<union> supp args"
+proof (induction vals arbitrary: args)
+  case Nil
+  then show ?case using supp_Nil by auto
+next
+  case (Cons a vals)
+  then show ?case by (cases args) (auto simp: supp_Nil supp_Cons binder.supp)
+qed
+
+lemma supp_zip_with_tyvar: "supp (zip_with BTyVar tys ks) \<subseteq> supp tys \<union> supp ks"
+proof (induction tys arbitrary: ks)
+  case Nil
+  then show ?case using supp_Nil by auto
+next
+  case (Cons a vals)
+  then show ?case by (cases ks) (auto simp: supp_Nil supp_Cons binder.supp)
+qed
+lemmas supp_zip_with = supp_zip_with_var supp_zip_with_tyvar
+
+lemma supp_vars: "supp (vars::var list) = set (map atom vars)"
+  by (induction vars) (auto simp: supp_Nil supp_Cons supp_at_base)
+lemma supp_tyvars: "supp (tyvars::tyvar list) = set (map atom tyvars)"
+  by (induction tyvars) (auto simp: supp_Nil supp_Cons supp_at_base)
+
+lemma permute_atoms_split:
+  fixes tys tys2::"tyvar list" and vars vars2::"var list"
+  assumes "p \<bullet> (map atom tys2 @ map atom vars2) = map atom tys @ map atom vars"
+  shows "p \<bullet> tys2 = tys" "p \<bullet> vars2 = vars"
+proof -
+  have 1: "map atom (p \<bullet> tys2) @ map atom (p \<bullet> vars2) = map atom tys @ map atom vars" (is "?L = ?R")
+    using assms by simp
+  then have "get_tyvars ?L = get_tyvars ?R" by simp
+  then show "p \<bullet> tys2 = tys" using get_tyvars_append by auto
+
+  from 1 have "get_vars ?L = get_vars ?R" by simp
+  then show "p \<bullet> vars2 = vars" using get_vars_append by auto
+qed
 
 end

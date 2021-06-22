@@ -92,6 +92,11 @@ lemma Abs_rename_body:
   shows "(a \<leftrightarrow> b) \<bullet> e1 = e2"
   by (metis Abs1_eq_iff'(3) Nominal2_Base.swap_self assms flip_commute flip_def fresh_star_zero supp_perm_eq_test)
 
+lemma Abs_rename_body_star:
+  fixes as bs::"atom list" and e1 e2::"'b::fs"
+  assumes "[as]lst. e1 = [bs]lst. e2"
+  obtains p where "p \<bullet> e1 = e2" "p \<bullet> as = bs" "supp p \<subseteq> set as \<union> set bs"
+  by (metis (full_types) Abs_eq_iff2(3) alpha_lst.simps assms)
 
 lemma fresh_filter: "a = b \<or> atom a \<sharp> xs \<Longrightarrow> atom a \<sharp> filter (\<lambda>x. x \<noteq> b) xs"
   by (induction xs) (auto simp: fresh_Cons fresh_Nil)
@@ -106,5 +111,11 @@ lemma eqvt_fBall[eqvt]: "p \<bullet> fBall s f = fBall (p \<bullet> s) (p \<bull
   apply auto
   apply (metis eqvt_bound eqvt_lambda fBallE in_fset_eqvt permute_pure)
   by (metis eqvt_apply fBallE fBallI in_fset_eqvt permute_pure)
+
+lemma permute_length:
+  fixes xs ys::"'a::at list"
+  assumes "p \<bullet> xs = ys"
+  shows "length xs = length ys"
+using assms by (induction xs arbitrary: ys) auto
 
 end

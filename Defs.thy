@@ -83,10 +83,7 @@ nominal_function ctor_data_app :: "\<tau> \<Rightarrow> (data_name * tyvar list)
 | "ctor_data_app (TyApp \<tau>1 (TyVar a)) = (case ctor_data_app \<tau>1 of
     Some (T, tys) \<Rightarrow> Some (T, a#tys)
   | None \<Rightarrow> None)"
-| "ctor_data_app (TyApp _ (TyData _)) = None"
-| "ctor_data_app (TyApp _ TyArrow) = None"
-| "ctor_data_app (TyApp _ (TyApp _ _)) = None"
-| "ctor_data_app (TyApp _ (TyForall _ _ _)) = None"
+| "\<nexists>a. \<tau>2 = TyVar a \<Longrightarrow> ctor_data_app (TyApp _ \<tau>2) = None"
 | "ctor_data_app (TyForall _ _ _) = None"
 proof goal_cases
 case 1
@@ -96,7 +93,7 @@ next
   then show ?case
   proof (cases x rule: \<tau>.exhaust)
     case (TyApp \<tau>1 \<tau>2)
-    then show ?thesis using 3 by (cases \<tau>2 rule: \<tau>.exhaust) auto
+    then show ?thesis using 3 by (cases "\<exists>a. \<tau>2 = TyVar a") auto
   qed auto
 qed auto
 nominal_termination (eqvt) by lexicographic_order
@@ -106,32 +103,15 @@ nominal_function ctor_type_app :: "\<tau> \<Rightarrow> (data_name * tyvar list)
 | "ctor_type_app (TyData T) = Some (T, [])"
 | "ctor_type_app TyArrow = None"
 | "ctor_type_app (TyApp (TyApp TyArrow \<tau>1) \<tau>2) = ctor_type_app \<tau>2"
-| "ctor_type_app (TyApp (TyApp (TyVar a) \<tau>1) \<tau>2) = ctor_data_app (TyApp (TyApp (TyVar a) \<tau>1) \<tau>2)"
-| "ctor_type_app (TyApp (TyApp (TyData T) \<tau>1) \<tau>2) = ctor_data_app (TyApp (TyApp (TyData T) \<tau>1) \<tau>2)"
-| "ctor_type_app (TyApp (TyApp (TyApp \<tau>1' \<tau>2') \<tau>1) \<tau>2) = ctor_data_app (TyApp (TyApp (TyApp \<tau>1' \<tau>2') \<tau>1) \<tau>2)"
-| "ctor_type_app (TyApp (TyApp (TyForall a k e) \<tau>1) \<tau>2) = ctor_data_app (TyApp (TyApp (TyForall a k e) \<tau>1) \<tau>2)"
-| "ctor_type_app (TyApp (TyVar a) \<tau>2) = ctor_data_app (TyApp (TyVar a) \<tau>2)"
-| "ctor_type_app (TyApp (TyData T) \<tau>2) = ctor_data_app (TyApp (TyData T) \<tau>2)"
-| "ctor_type_app (TyApp TyArrow \<tau>2) = ctor_data_app (TyApp TyArrow \<tau>2)"
-| "ctor_type_app (TyApp (TyForall a k e) \<tau>2) = ctor_data_app (TyApp (TyForall a k e) \<tau>2)"
+| "\<nexists>\<tau>1'. \<tau>1 = TyApp TyArrow \<tau>1' \<Longrightarrow> ctor_type_app (TyApp \<tau>1 \<tau>2) = ctor_data_app (TyApp \<tau>1 \<tau>2)"
 | "ctor_type_app (TyForall _ _ _) = None"
 proof goal_cases
   case (3 P x)
   then show ?case
   proof (cases x rule: \<tau>.exhaust)
-    case outer: (TyApp \<tau>1 \<tau>2)
-    then show ?thesis using 3
-    proof (cases \<tau>1 rule: \<tau>.exhaust)
-      case (TyApp \<sigma>1 \<sigma>2)
-      then show ?thesis using outer 3 by (cases \<sigma>1 rule: \<tau>.exhaust) auto
-    qed auto
-  qed auto
-next
-  case (74 a k e \<tau>1 \<tau>2 a k e \<tau>1 \<tau>2)
-  then show ?case by presburger
-next
-  case (92 a k e \<tau>2 a k e \<tau>2)
-  then show ?case by presburger
+    case (TyApp e1 e2)
+    then show ?thesis using 3(4,5) by (cases "\<nexists>\<tau>1'. e1 = TyApp TyArrow \<tau>1'") auto
+  qed (auto simp: 3)
 qed (auto simp: eqvt_def ctor_type_app_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
 
@@ -192,7 +172,7 @@ nominal_function ctor_type :: "\<tau> \<Rightarrow> (data_name * \<kappa> list) 
 | "ctor_type (TyData T) = Some (T, [])"
 | "ctor_type TyArrow = None"
 | "ctor_type (TyApp \<tau>1 \<tau>2) = (case ctor_type_app (TyApp \<tau>1 \<tau>2) of Some (T, []) \<Rightarrow> Some (T, []) | _ \<Rightarrow> None)"
-| "ctor_type (TyForall a k e) = (case ctor_type_forall (TyForall a k e) of Some (T, [], ks) \<Rightarrow> Some (T, k#ks) | _ \<Rightarrow> None)"
+| "ctor_type (TyForall a k e) = (case ctor_type_forall (TyForall a k e) of Some (T, [], ks) \<Rightarrow> Some (T, ks) | _ \<Rightarrow> None)"
 proof goal_cases
   case 1
   then show ?case by (auto simp: eqvt_def ctor_type_graph_aux_def split!: option.splits list.splits)
@@ -464,5 +444,36 @@ consts subst :: "'a \<Rightarrow> 'b \<Rightarrow> 'c \<Rightarrow> 'a" ("_[_'/_
 
 adhoc_overloading
   subst subst_term subst_alt_list subst_alt subst_type subst_term_type subst_alt_list_type subst_alt_type subst_context
+
+fun get_tyvars :: "atom list \<Rightarrow> tyvar list" where
+  "get_tyvars [] = []"
+| "get_tyvars (a#as) = (if sort_of a = sort_of (atom (undefined :: tyvar))
+    then Abs_tyvar a # get_tyvars as
+    else get_tyvars as)"
+
+fun get_vars :: "atom list \<Rightarrow> var list" where
+  "get_vars [] = []"
+| "get_vars (a#as) = (if sort_of a = sort_of (atom (undefined :: var))
+    then Abs_var a # get_vars as
+    else get_vars as)"
+
+lemma get_tyvars_append: "get_tyvars (map atom (tys::tyvar list) @ map atom (vars::var list)) = tys"
+proof (induction tys arbitrary: vars)
+case Nil
+  then show ?case by (induction vars) auto
+next
+  case (Cons a tys)
+  then show ?case  apply auto by (simp add: Rep_tyvar_inverse atom_tyvar_def)
+qed
+
+lemma get_vars_append: "get_vars (map atom (tys::tyvar list) @ map atom (vars::var list)) = vars"
+proof (induction tys arbitrary: vars)
+  case outer: Nil
+  then show ?case
+  proof (induction vars)
+    case (Cons a vars)
+    then show ?case apply auto by (simp add: Rep_var_inverse atom_var_def)
+  qed simp
+qed simp
 
 end

@@ -23,6 +23,12 @@ nominal_datatype "\<kappa>" =
   Star ("\<star>")
   | KArrow "\<kappa>" "\<kappa>" (infixr "\<rightarrow>" 50)
 
+instance \<kappa> :: pure
+proof (standard, goal_cases)
+  case (1 p x)
+  then show ?case by (induction x rule: \<kappa>.induct) auto
+qed
+
 nominal_datatype "\<tau>" =
   TyVar "tyvar"
   | TyData "data_name"
