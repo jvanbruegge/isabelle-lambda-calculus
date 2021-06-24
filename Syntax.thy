@@ -23,6 +23,12 @@ nominal_datatype "\<kappa>" =
   Star ("\<star>")
   | KArrow "\<kappa>" "\<kappa>" (infixr "\<rightarrow>" 50)
 
+instance \<kappa> :: pure
+proof (standard, goal_cases)
+  case (1 p x)
+  then show ?case by (induction x rule: \<kappa>.induct) auto
+qed
+
 nominal_datatype "\<tau>" =
   TyVar "tyvar"
   | TyData "data_name"
@@ -41,6 +47,15 @@ nominal_datatype "term" =
  | Lam x::"var" "\<tau>" e::"term" binds x in e  ("\<lambda> _ : _ . _" 50)
  | TyLam a::"tyvar" "\<kappa>" e::"term" binds a in e ("\<Lambda> _ : _ . _" 50)
  | Let x::"var" "\<tau>" "term" e2::"term" binds x in e2
+ | Case "term" "alt_list"
+and "alt_list" =
+  ANil
+| ACons "alt" "alt_list"
+and "alt" =
+  MatchCtor "ctor_name" tys::"tyvar list" vals::"var list" e::"term" binds tys vals in e
+lemmas term_supp = term_alt_list_alt.supp(1-8)
+lemmas alt_list_supp = term_alt_list_alt.supp(9,10)
+lemmas alt_supp = term_alt_list_alt.supp(11)
 
 nominal_datatype "binder" =
   BVar "var" "\<tau>"
@@ -75,6 +90,8 @@ lemma no_tyvars_in_kinds[simp]: "atom (a :: tyvar) \<sharp> (k :: \<kappa>)"
 
 lemma supp_empty_kinds[simp]: "supp (k :: \<kappa>) = {}"
   by (induction k rule: \<kappa>.induct) (auto simp: \<kappa>.supp)
+lemma supp_empty_kind_list[simp]: "supp (ks :: \<kappa> list) = {}"
+  by (induction ks) (auto simp: supp_Nil supp_Cons)
 
 lemma perm_data_name_var[simp]: "((a::var) \<leftrightarrow> b) \<bullet> (T :: data_name) = T"
   using flip_fresh_fresh pure_fresh by blast
@@ -84,6 +101,13 @@ lemma perm_ctor_name_var[simp]: "((a::var) \<leftrightarrow> b) \<bullet> (D :: 
   using flip_fresh_fresh pure_fresh by blast
 lemma perm_ctor_name_tyvar[simp]: "((a::tyvar) \<leftrightarrow> b) \<bullet> (D :: ctor_name) = D"
   using flip_fresh_fresh pure_fresh by blast
-
+lemma perm_kind_var[simp]: "((a::var) \<leftrightarrow> b) \<bullet> (k::\<kappa>) = k"
+  using supp_empty_kinds flip_fresh_fresh fresh_def by blast
+lemma perm_kind_tyvar[simp]: "((a::tyvar) \<leftrightarrow> b) \<bullet> (k::\<kappa>) = k"
+  using supp_empty_kinds flip_fresh_fresh fresh_def by blast
+lemma perm_kind_list_var[simp]: "((a::var) \<leftrightarrow> b) \<bullet> (ks::\<kappa> list) = ks"
+  by (induction ks) auto
+lemma perm_kind_list_tyvar[simp]: "((a::tyvar) \<leftrightarrow> b) \<bullet> (ks::\<kappa> list) = ks"
+  by (induction ks) auto
 
 end

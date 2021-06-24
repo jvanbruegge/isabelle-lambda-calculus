@@ -62,6 +62,19 @@ proof -
   show ?thesis using 1 2 3 equal by argo
 qed
 
+lemma Abs_sumC_star:
+  fixes ys ys'::"atom list" and x x'::"'a::fs" and e e'::"'b::fs" and e2 e2'::"'c::fs" and f::"'c * 'b * 'a \<Rightarrow> 'd::fs"
+  assumes fresh: "set ys \<sharp>* (e, x)" "set ys' \<sharp>* (e', x')"
+  and eqvt_at: "eqvt_at f (e2, e, x)" "eqvt_at f (e2', e', x')"
+  and equal: "[ys]lst. e2 = [ys']lst. e2'" "x = x'" "e = e'"
+  shows "[ys]lst. f (e2, e, x) = [ys']lst. f (e2', e', x')"
+proof -
+  have 1: "set ys \<sharp>* ([ys]lst. f (e2, e, x))" by (simp add: Abs_fresh_star(3))
+  have 2: "\<And>p. supp p \<sharp>* (e, x) \<Longrightarrow> p \<bullet> ([ys]lst. f (e2, e, x)) = [p \<bullet> ys]lst. f (p \<bullet> e2, e, x)" using eqvt_at(1) by (simp add: eqvt_at_def, simp add: fresh_star_Pair perm_supp_eq)
+  have 3: "\<And>p. supp p \<sharp>* (e, x) \<Longrightarrow> p \<bullet> ([ys']lst. f (e2', e, x)) = [p \<bullet> ys']lst. f (p \<bullet> e2', e, x)" using eqvt_at(2) equal(2,3) by (simp add: eqvt_at_def, simp add: fresh_star_Pair perm_supp_eq)
+  show ?thesis using Abs_lst_fcb2[where f="\<lambda>a b c. [a]lst. f (b, e, x)", OF equal(1) 1 fresh(1) _ 2 3] fresh(2) equal(2,3) by simp
+qed
+
 lemma Abs_fresh_var:
   fixes y::"'a::at" and e ::"'b::fs"
   obtains c::"'a" and e'::"'b" where "([[atom y]]lst. e = [[atom c]]lst. e') \<and> atom y \<sharp> [[atom c]]lst. e'"
@@ -79,7 +92,30 @@ lemma Abs_rename_body:
   shows "(a \<leftrightarrow> b) \<bullet> e1 = e2"
   by (metis Abs1_eq_iff'(3) Nominal2_Base.swap_self assms flip_commute flip_def fresh_star_zero supp_perm_eq_test)
 
+lemma Abs_rename_body_star:
+  fixes as bs::"atom list" and e1 e2::"'b::fs"
+  assumes "[as]lst. e1 = [bs]lst. e2"
+  obtains p where "p \<bullet> e1 = e2" "p \<bullet> as = bs" "supp p \<subseteq> set as \<union> set bs"
+  by (metis (full_types) Abs_eq_iff2(3) alpha_lst.simps assms)
+
 lemma fresh_filter: "a = b \<or> atom a \<sharp> xs \<Longrightarrow> atom a \<sharp> filter (\<lambda>x. x \<noteq> b) xs"
   by (induction xs) (auto simp: fresh_Cons fresh_Nil)
+
+lemma Projl_permute: "\<exists>y. f = Inl y \<Longrightarrow> p \<bullet> projl f = projl (p \<bullet> f)" by auto
+lemma Projr_permute: "\<exists>y. f = Inr y \<Longrightarrow> p \<bullet> projr f = projr (p \<bullet> f)" by auto
+
+lemma pair3_eqvt[simp]: "(a \<leftrightarrow> b) \<bullet> (x, y, z) = ((a \<leftrightarrow> b) \<bullet> x, (a \<leftrightarrow> b) \<bullet> y, (a \<leftrightarrow> b) \<bullet> z)"
+  by (simp split: prod.splits)
+
+lemma eqvt_fBall[eqvt]: "p \<bullet> fBall s f = fBall (p \<bullet> s) (p \<bullet> f)"
+  apply auto
+  apply (metis eqvt_bound eqvt_lambda fBallE in_fset_eqvt permute_pure)
+  by (metis eqvt_apply fBallE fBallI in_fset_eqvt permute_pure)
+
+lemma permute_length:
+  fixes xs ys::"'a::at list"
+  assumes "p \<bullet> xs = ys"
+  shows "length xs = length ys"
+using assms by (induction xs arbitrary: ys) auto
 
 end
