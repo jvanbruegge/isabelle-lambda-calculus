@@ -21,14 +21,7 @@ nominal_function ctor_args :: "\<tau> \<Rightarrow> \<tau> list option" where
 | "ctor_args (TyApp (TyApp TyArrow \<tau>1) \<tau>2) = (case ctor_args \<tau>2 of
     Some tys \<Rightarrow> Some (\<tau>1#tys)
   | None \<Rightarrow> None)"
-| "ctor_args (TyApp (TyApp (TyVar a) \<tau>1) \<tau>2) = (if ctor_data_app_subst (TyApp (TyApp (TyVar a) \<tau>1) \<tau>2) then Some [] else None)"
-| "ctor_args (TyApp (TyApp (TyData T) \<tau>1) \<tau>2) = (if ctor_data_app_subst (TyApp (TyApp (TyData T) \<tau>1) \<tau>2) then Some [] else None)"
-| "ctor_args (TyApp (TyApp (TyApp \<tau>1' \<tau>2') \<tau>1) \<tau>2) = (if ctor_data_app_subst (TyApp (TyApp (TyApp \<tau>1' \<tau>2') \<tau>1) \<tau>2) then Some [] else None)"
-| "ctor_args (TyApp (TyApp (TyForall a k e) \<tau>1) \<tau>2) = (if ctor_data_app_subst (TyApp (TyApp (TyForall a k e) \<tau>1) \<tau>2) then Some [] else None)"
-| "ctor_args (TyApp (TyVar a) \<tau>2) = (if ctor_data_app_subst (TyApp (TyVar a) \<tau>2) then Some [] else None)"
-| "ctor_args (TyApp (TyData T) \<tau>2) = (if ctor_data_app_subst (TyApp (TyData T) \<tau>2) then Some [] else None)"
-| "ctor_args (TyApp TyArrow \<tau>2) = (if ctor_data_app_subst (TyApp TyArrow \<tau>2) then Some [] else None)"
-| "ctor_args (TyApp (TyForall a k e) \<tau>2) = (if ctor_data_app_subst (TyApp (TyForall a k e) \<tau>2) then Some [] else None)"
+| "\<nexists>\<tau>1'. \<tau>1 = TyApp TyArrow \<tau>1' \<Longrightarrow> ctor_args (TyApp \<tau>1 \<tau>2) = (if ctor_data_app_subst (TyApp \<tau>1 \<tau>2) then Some [] else None)"
 | "ctor_args (TyForall _ _ _) = None"
 proof goal_cases
   case 1
@@ -37,12 +30,8 @@ next
   case (3 P x)
   then show ?case
   proof (cases x rule: \<tau>.exhaust)
-    case outer: (TyApp \<tau>1 \<tau>2)
-    then show ?thesis using 3
-    proof (cases \<tau>1 rule: \<tau>.exhaust)
-      case (TyApp \<sigma>1 \<sigma>2)
-      then show ?thesis using outer 3 by (cases \<sigma>1 rule: \<tau>.exhaust) auto
-    qed auto
+    case (TyApp \<tau>1 \<tau>2)
+    then show ?thesis using 3 by (cases "\<exists>\<tau>1'. \<tau>1 = TyApp TyArrow \<tau>1'") auto
   qed auto
 qed auto
 nominal_termination (eqvt) by lexicographic_order
@@ -75,5 +64,31 @@ next
   then show ?case by (metis Pair_inject \<tau>.eq_iff(5) list.inject subst_same(2))
 qed (auto simp: eqvt_def subst_ctor_graph_aux_def)
 nominal_termination (eqvt) by lexicographic_order
+
+lemma supp_ctor_args: "ctor_args \<tau> = Some args \<Longrightarrow> supp args \<subseteq> supp \<tau>"
+proof (induction \<tau> arbitrary: args rule: ctor_args.induct)
+  case (2 T)
+  then show ?case unfolding \<tau>.supp(2) pure_supp using supp_Nil by simp
+next
+  case (4 \<tau>1 \<tau>2)
+  then show ?case apply (auto split!: option.splits) unfolding \<tau>.supp supp_Cons by auto
+next
+  case (5 \<tau>1 \<tau>2 a)
+  then show ?case using supp_Nil by (auto split!: if_splits)
+qed auto
+
+lemma supp_subst_ctor: "subst_ctor \<tau> \<tau>s = Some args \<Longrightarrow> supp args \<subseteq> supp \<tau> \<union> supp \<tau>s"
+proof (induction \<tau> \<tau>s arbitrary: args rule: subst_ctor.induct)
+  case (3 T)
+  then show ?case unfolding \<tau>.supp(2) pure_supp by simp
+next
+  case (5 \<tau>1 \<tau>2)
+  then have "ctor_args (TyApp \<tau>1 \<tau>2) = Some args" by simp
+  then show ?case using supp_Nil supp_ctor_args by auto
+next
+  case (8 a k e \<tau> \<tau>s)
+  then have "supp args \<subseteq> supp e[\<tau>/a] \<union> supp \<tau>s" by simp
+  then show ?case unfolding \<tau>.supp(5) pure_supp supp_Cons using supp_subst_type by fastforce
+qed auto
 
 end
